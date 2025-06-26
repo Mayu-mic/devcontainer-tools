@@ -5,7 +5,7 @@ This package provides a streamlined interface for managing development container
 with automatic configuration merging and simplified command-line options.
 """
 
-__version__ = "1.0.0"
+__version__ = "0.0.1"
 __author__ = "Ryo Koizumi <koizumiryo@gmail.com>"
 
 from .cli import cli

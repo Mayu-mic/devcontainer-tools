@@ -1,6 +1,6 @@
 [project]
 name = "devcontainer-tools"
-version = "1.0.0"
+version = "0.0.1"
 description = "Simplified DevContainer management tool for teams"
 authors = [{name = "Ryo Koizumi", email = "koizumiryo@gmail.com"}]
 readme = "README.md"

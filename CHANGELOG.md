@@ -24,10 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dev rebuild` - Clean rebuild containers from scratch
 - `dev init` - Initialize common configuration templates
 
-## [1.0.0] - 2024-01-XX
+## [0.0.1] - 2024-12-26
 
 ### Added
-- Initial stable release
+- Initial development release
 - Core functionality for DevContainer management
 - Configuration merging system
 - Command-line interface with click
