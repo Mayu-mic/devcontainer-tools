@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import json5
 from rich.console import Console
 
 console = Console()
@@ -15,8 +16,9 @@ console = Console()
 
 def load_json_file(file_path: Path) -> Dict[str, Any]:
     """
-    JSONファイルを安全に読み込む。
+    JSONまたはJSONCファイルを安全に読み込む。
     
+    devcontainer.jsonのようなコメント付きJSONもサポートします。
     エラーが発生した場合は警告を表示し、空の辞書を返す。
     
     Args:
@@ -27,11 +29,13 @@ def load_json_file(file_path: Path) -> Dict[str, Any]:
     """
     try:
         with open(file_path, encoding='utf-8') as f:
-            return json.load(f)
+            content = f.read()
+        # json5でコメント付きJSONをパース
+        return json5.loads(content)
     except FileNotFoundError:
         console.print(f"[yellow]Warning: File not found: {file_path}[/yellow]")
         return {}
-    except json.JSONDecodeError as e:
+    except (json5.JSONError, ValueError) as e:
         console.print(f"[yellow]Warning: Invalid JSON in {file_path}: {e}[/yellow]")
         return {}
     except Exception as e:
