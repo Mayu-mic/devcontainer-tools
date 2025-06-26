@@ -32,7 +32,7 @@ console = Console()
 def cli():
     """
     DevContainer簡略化管理ツール
-    
+
     複雑なdevcontainer CLIオプションを簡略化し、
     設定ファイルの自動マージ機能を提供します。
     """
@@ -53,7 +53,7 @@ def cli():
 def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug, dry_run):
     """
     開発コンテナを起動または作成する。
-    
+
     共通設定とプロジェクト設定を自動的にマージし、
     forwardPortsからappPortへの変換も行います。
     """
@@ -83,19 +83,19 @@ def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug, 
     # dry-runモードの場合は設定表示のみ
     if dry_run:
         console.print("\n[bold blue]🔍 Dry Run Mode - 設定確認のみ[/bold blue]")
-        
+
         # 設定ファイルの情報を表示
         console.print("\n[bold]設定ソース:[/bold]")
         if project_config:
             console.print(f"📄 プロジェクト設定: {project_config.relative_to(workspace)}")
         else:
             console.print("📄 プロジェクト設定: [yellow]見つかりません[/yellow]")
-        
+
         if common_config.exists():
             console.print(f"🌐 共通設定: {common_config}")
         else:
             console.print("🌐 共通設定: [yellow]見つかりません[/yellow]")
-        
+
         if mount or env or port:
             console.print("⚙️  コマンドラインオプション:")
             if mount:
@@ -104,7 +104,7 @@ def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug, 
                 console.print(f"   環境変数: {list(env)}")
             if port:
                 console.print(f"   ポート: {list(port)}")
-        
+
         console.print(Panel(JSON(json.dumps(merged_config, indent=2)), title="マージ後の devcontainer.json"))
         console.print("\n[green]✅ 設定の確認が完了しました。実際の起動は行いません。[/green]")
         return
@@ -158,7 +158,7 @@ def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug, 
 def exec(command, workspace, no_up):
     """
     実行中のコンテナ内でコマンドを実行する。
-    
+
     可能な場合はdocker execを直接使用してパフォーマンスを向上させる。
     コンテナが見つからない場合、デフォルトで自動的にコンテナを起動する。
     --no-upオプションを指定すると従来通りエラーで停止する。
@@ -173,7 +173,7 @@ def exec(command, workspace, no_up):
 def rebuild(ctx, workspace):
     """
     コンテナを最初から再ビルドする。
-    
+
     既存のコンテナを削除し、キャッシュを使用せずに
     新しいコンテナをビルドします。
     """
@@ -187,7 +187,7 @@ def rebuild(ctx, workspace):
 def status(workspace):
     """
     コンテナのステータスと設定を表示する。
-    
+
     実行中のコンテナの情報、マウント状況、
     使用中の設定ファイルなどを表示します。
     """
@@ -239,7 +239,7 @@ def status(workspace):
 def init(common_config):
     """
     共通設定テンプレートを初期化する。
-    
+
     devcontainer.common.jsonファイルを作成し、
     よく使用される基本的な設定を含めます。
     """

@@ -24,13 +24,13 @@ def run_command(
 ) -> subprocess.CompletedProcess[str]:
     """
     コマンドを実行し、結果を返す。
-    
+
     Args:
         cmd: 実行するコマンドのリスト
         check: エラー時に例外を発生させるかどうか
         capture_output: 出力をキャプチャするかどうか
         text: テキストモードで実行するかどうか
-    
+
     Returns:
         コマンドの実行結果
     """
@@ -41,13 +41,13 @@ def run_command(
 def get_container_id(workspace: Path) -> Optional[str]:
     """
     現在のワークスペースに対応するコンテナIDを取得する。
-    
+
     Dockerのラベルを使用してコンテナを検索する。
     複数のラベル形式を試す。
-    
+
     Args:
         workspace: ワークスペースのパス
-    
+
     Returns:
         コンテナID（見つからない場合はNone）
     """
@@ -79,10 +79,10 @@ def get_container_id(workspace: Path) -> Optional[str]:
 def get_container_info(container_id: str) -> Optional[Dict[str, Any]]:
     """
     コンテナの詳細情報を取得する。
-    
+
     Args:
         container_id: コンテナID
-    
+
     Returns:
         コンテナ情報の辞書、取得できない場合はNone
     """
@@ -101,10 +101,10 @@ def get_container_info(container_id: str) -> Optional[Dict[str, Any]]:
 def is_container_running(workspace: Path) -> bool:
     """
     ワークスペースのコンテナが実行中かどうかを確認する。
-    
+
     Args:
         workspace: ワークスペースのパス
-    
+
     Returns:
         実行中の場合True、そうでない場合False
     """
@@ -114,10 +114,10 @@ def is_container_running(workspace: Path) -> bool:
 def ensure_container_running(workspace: Path) -> bool:
     """
     コンテナが実行されていることを確認し、必要に応じて起動する。
-    
+
     Args:
         workspace: ワークスペースのパス
-    
+
     Returns:
         コンテナが利用可能な場合True、そうでない場合False
     """
@@ -151,21 +151,21 @@ def execute_in_container(
 ) -> subprocess.CompletedProcess[str]:
     """
     コンテナ内でコマンドを実行する。
-    
+
     Args:
         workspace: ワークスペースのパス
         command: 実行するコマンド
         use_docker_exec: docker execを使用するかどうか
         auto_up: コンテナが起動していない場合に自動起動するかどうか
         workspace_folder: ワーキングディレクトリ（Noneの場合は自動取得）
-    
+
     Returns:
         コマンドの実行結果
     """
     # workspace_folderが指定されていない場合は自動取得
     if workspace_folder is None:
         workspace_folder = get_workspace_folder(workspace)
-    
+
     if use_docker_exec:
         container_id = get_container_id(workspace)
         if container_id:

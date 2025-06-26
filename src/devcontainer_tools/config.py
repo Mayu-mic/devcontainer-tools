@@ -14,14 +14,14 @@ from .utils import find_devcontainer_json, load_json_file, parse_mount_string
 def deep_merge(target: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]:
     """
     2つの辞書を深くマージする。
-    
+
     ネストされた辞書は再帰的にマージされ、
     リストは結合されて重複が削除される。
-    
+
     Args:
         target: マージ先の辞書
         source: マージ元の辞書
-    
+
     Returns:
         マージされた辞書
     """
@@ -62,26 +62,26 @@ def merge_configurations(
 ) -> Dict[str, Any]:
     """
     すべての設定をマージする。
-    
+
     マージ順序（優先度順）:
     1. コマンドラインオプション（最優先）
     2. プロジェクト設定（.devcontainer/devcontainer.json）（ベース）
     3. 共通設定（devcontainer.common.json）（補完のみ）
-    
+
     プロジェクト設定をベースとし、共通設定で不足部分のみを補完する。
     プロジェクト設定が存在する項目は共通設定で上書きされない。
-    
+
     特殊な処理:
     - forwardPortsをappPortに自動変換
     - マウント、環境変数、ポートの追加
-    
+
     Args:
         common_config_path: 共通設定ファイルのパス
         project_config_path: プロジェクト設定ファイルのパス
         additional_mounts: 追加マウントのリスト
         additional_env: 追加環境変数のリスト（タプル）
         additional_ports: 追加ポートのリスト
-    
+
     Returns:
         マージされた設定辞書
     """
@@ -140,7 +140,7 @@ def merge_configurations(
 def create_common_config_template() -> Dict[str, Any]:
     """
     共通設定テンプレートを作成する。
-    
+
     Returns:
         共通設定のテンプレート辞書
     """
@@ -166,13 +166,13 @@ def create_common_config_template() -> Dict[str, Any]:
 def get_workspace_folder(workspace: Path) -> str:
     """
     devcontainer.jsonからworkspaceFolderを取得する。
-    
+
     devcontainer.jsonにworkspaceFolderが定義されていない場合は、
     デフォルト値として'/workspace'を返す。
-    
+
     Args:
         workspace: ワークスペースのパス
-    
+
     Returns:
         workspaceFolder値（デフォルト: /workspace）
     """
@@ -180,9 +180,9 @@ def get_workspace_folder(workspace: Path) -> str:
     config_path = find_devcontainer_json(workspace)
     if not config_path:
         return "/workspace"
-    
+
     # 設定ファイルを読み込み
     config = load_json_file(config_path)
-    
+
     # workspaceFolderを取得（未定義の場合はデフォルト値）
     return config.get("workspaceFolder", "/workspace")

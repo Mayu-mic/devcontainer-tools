@@ -17,13 +17,13 @@ console = Console()
 def load_json_file(file_path: Path) -> Dict[str, Any]:
     """
     JSONまたはJSONCファイルを安全に読み込む。
-    
+
     devcontainer.jsonのようなコメント付きJSONもサポートします。
     エラーが発生した場合は警告を表示し、空の辞書を返す。
-    
+
     Args:
         file_path: 読み込むJSONファイルのパス
-    
+
     Returns:
         パースされたJSON（辞書）、エラーの場合は空の辞書
     """
@@ -49,14 +49,14 @@ def load_json_file(file_path: Path) -> Dict[str, Any]:
 def find_devcontainer_json(workspace: Path) -> Optional[Path]:
     """
     ワークスペース内のdevcontainer.jsonファイルを検索する。
-    
+
     以下の順序で検索:
     1. .devcontainer/devcontainer.json
     2. devcontainer.json (ルート)
-    
+
     Args:
         workspace: 検索するワークスペースのパス
-    
+
     Returns:
         見つかったdevcontainer.jsonのパス、見つからない場合はNone
     """
@@ -75,14 +75,14 @@ def find_devcontainer_json(workspace: Path) -> Optional[Path]:
 def parse_mount_string(mount_str: str) -> str:
     """
     マウント文字列を解析し、devcontainer形式に変換する。
-    
+
     サポートする形式:
     - source=path,target=path,type=bind,consistency=cached (完全形式)
     - /host/path:/container/path (簡略形式)
-    
+
     Args:
         mount_str: マウント文字列
-    
+
     Returns:
         devcontainer形式のマウント文字列
     """
@@ -102,12 +102,12 @@ def parse_mount_string(mount_str: str) -> str:
 def save_json_file(data: Dict[str, Any], file_path: Path, indent: int = 2) -> bool:
     """
     辞書をJSONファイルとして保存する。
-    
+
     Args:
         data: 保存するデータ
         file_path: 保存先のファイルパス
         indent: インデントレベル
-    
+
     Returns:
         保存に成功した場合True、失敗した場合False
     """
