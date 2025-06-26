@@ -47,7 +47,7 @@ def cli():
 @click.option('--env', multiple=True, help='追加環境変数 (形式: NAME=VALUE)')
 @click.option('--port', multiple=True, help='追加ポートフォワード (形式: PORT または PORT:PORT)')
 @click.option('--workspace', type=click.Path(exists=True, path_type=Path), default=Path.cwd(), help='ワークスペースフォルダ')
-@click.option('--common-config', type=click.Path(path_type=Path), default=Path('devcontainer.common.json'), help='共通設定ファイル')
+@click.option('--common-config', type=click.Path(path_type=Path), default=Path.home() / '.config' / 'devcontainer.common.json', help='共通設定ファイル')
 @click.option('--debug', is_flag=True, help='デバッグ情報を表示')
 def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug):
     """
@@ -205,7 +205,7 @@ def status(workspace):
 
 
 @cli.command()
-@click.option('--common-config', type=click.Path(path_type=Path), default=Path('devcontainer.common.json'), help='作成する共通設定ファイル')
+@click.option('--common-config', type=click.Path(path_type=Path), default=Path.home() / '.config' / 'devcontainer.common.json', help='作成する共通設定ファイル')
 def init(common_config):
     """
     共通設定テンプレートを初期化する。
@@ -217,6 +217,9 @@ def init(common_config):
         console.print(f"[yellow]File {common_config} already exists[/yellow]")
         if not click.confirm("Overwrite?"):
             return
+
+    # 設定ディレクトリが存在しない場合は作成
+    common_config.parent.mkdir(parents=True, exist_ok=True)
 
     # 共通設定のテンプレートを作成
     template = create_common_config_template()
