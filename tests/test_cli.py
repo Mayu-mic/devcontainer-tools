@@ -3,9 +3,8 @@
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-import pytest
 from click.testing import CliRunner
 
 from devcontainer_tools.cli import cli
@@ -17,18 +16,18 @@ class TestCliInit:
     def test_init_creates_config(self):
         """Test that init command creates a config file."""
         runner = CliRunner()
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "devcontainer.common.json"
-            
+
             result = runner.invoke(cli, [
                 'init',
                 '--common-config', str(config_path)
             ])
-            
+
             assert result.exit_code == 0
             assert config_path.exists()
-            
+
             # Verify content
             config = json.loads(config_path.read_text())
             assert "features" in config
@@ -38,16 +37,16 @@ class TestCliInit:
     def test_init_existing_file_no_overwrite(self):
         """Test init with existing file and no to overwrite."""
         runner = CliRunner()
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "devcontainer.common.json"
             config_path.write_text('{"existing": "config"}')
-            
+
             result = runner.invoke(cli, [
                 'init',
                 '--common-config', str(config_path)
             ], input='n')
-            
+
             assert result.exit_code == 0
             # File should remain unchanged
             config = json.loads(config_path.read_text())
@@ -56,16 +55,16 @@ class TestCliInit:
     def test_init_existing_file_with_overwrite(self):
         """Test init with existing file and yes to overwrite."""
         runner = CliRunner()
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             config_path = Path(temp_dir) / "devcontainer.common.json"
             config_path.write_text('{"existing": "config"}')
-            
+
             result = runner.invoke(cli, [
-                'init', 
+                'init',
                 '--common-config', str(config_path)
             ], input='y')
-            
+
             assert result.exit_code == 0
             # File should be overwritten
             config = json.loads(config_path.read_text())
@@ -80,21 +79,21 @@ class TestCliUp:
     def test_up_basic(self, mock_find_config, mock_subprocess):
         """Test basic up command."""
         runner = CliRunner()
-        
+
         # Mock finding no project config
         mock_find_config.return_value = None
-        
+
         # Mock successful subprocess run
         mock_subprocess.return_value = MagicMock(returncode=0)
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
-            
+
             result = runner.invoke(cli, [
                 'up',
                 '--workspace', str(workspace)
             ])
-            
+
             assert result.exit_code == 0
             # Verify devcontainer up was called
             mock_subprocess.assert_called_once()
@@ -106,26 +105,26 @@ class TestCliUp:
     def test_up_with_options(self, mock_find_config, mock_subprocess):
         """Test up command with various options."""
         runner = CliRunner()
-        
+
         mock_find_config.return_value = None
         mock_subprocess.return_value = MagicMock(returncode=0)
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
-            
+
             result = runner.invoke(cli, [
                 'up',
                 '--workspace', str(workspace),
                 '--clean',
-                '--no-cache', 
+                '--no-cache',
                 '--gpu',
                 '--mount', '/host:/container',
                 '--env', 'NODE_ENV=development',
                 '--port', '8080'
             ])
-            
+
             assert result.exit_code == 0
-            
+
             # Verify options were passed to devcontainer
             args = mock_subprocess.call_args[0][0]
             assert "--remove-existing-container" in args
@@ -137,18 +136,18 @@ class TestCliUp:
     def test_up_failure(self, mock_subprocess):
         """Test up command when devcontainer fails."""
         runner = CliRunner()
-        
+
         # Mock failed subprocess run
         mock_subprocess.return_value = MagicMock(returncode=1)
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
-            
+
             result = runner.invoke(cli, [
                 'up',
                 '--workspace', str(workspace)
             ])
-            
+
             assert result.exit_code == 1
 
 
@@ -159,19 +158,19 @@ class TestCliExec:
     def test_exec_command(self, mock_execute):
         """Test exec command."""
         runner = CliRunner()
-        
+
         # Mock successful execution
         mock_execute.return_value = MagicMock(returncode=0)
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
-            
+
             result = runner.invoke(cli, [
                 'exec',
                 '--workspace', str(workspace),
                 'bash', '-c', 'echo hello'
             ])
-            
+
             assert result.exit_code == 0
             mock_execute.assert_called_once_with(workspace, ['bash', '-c', 'echo hello'])
 
@@ -179,19 +178,19 @@ class TestCliExec:
     def test_exec_command_failure(self, mock_execute):
         """Test exec command when command fails."""
         runner = CliRunner()
-        
+
         # Mock failed execution
         mock_execute.return_value = MagicMock(returncode=127)
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
-            
+
             result = runner.invoke(cli, [
                 'exec',
                 '--workspace', str(workspace),
                 'nonexistent-command'
             ])
-            
+
             assert result.exit_code == 127
 
 
@@ -204,7 +203,7 @@ class TestCliStatus:
     def test_status_running_container(self, mock_find_config, mock_get_info, mock_get_id):
         """Test status with running container."""
         runner = CliRunner()
-        
+
         # Mock running container
         mock_get_id.return_value = "abc123container"
         mock_get_info.return_value = {
@@ -214,15 +213,15 @@ class TestCliStatus:
             ]
         }
         mock_find_config.return_value = Path("devcontainer.json")
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
-            
+
             result = runner.invoke(cli, [
                 'status',
                 '--workspace', str(workspace)
             ])
-            
+
             assert result.exit_code == 0
             assert "Running" in result.output
             assert "abc123container"[:12] in result.output
@@ -232,19 +231,19 @@ class TestCliStatus:
     def test_status_no_container(self, mock_find_config, mock_get_id):
         """Test status with no running container."""
         runner = CliRunner()
-        
+
         # Mock no container
         mock_get_id.return_value = None
         mock_find_config.return_value = None
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
-            
+
             result = runner.invoke(cli, [
                 'status',
                 '--workspace', str(workspace)
             ])
-            
+
             assert result.exit_code == 0
             assert "Not running" in result.output
 
@@ -257,20 +256,20 @@ class TestCliRebuild:
     def test_rebuild(self, mock_find_config, mock_subprocess):
         """Test rebuild command."""
         runner = CliRunner()
-        
+
         mock_find_config.return_value = None
         mock_subprocess.return_value = MagicMock(returncode=0)
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
-            
+
             result = runner.invoke(cli, [
                 'rebuild',
                 '--workspace', str(workspace)
             ])
-            
+
             assert result.exit_code == 0
-            
+
             # Verify that clean and no-cache options were used
             args = mock_subprocess.call_args[0][0]
             assert "--remove-existing-container" in args

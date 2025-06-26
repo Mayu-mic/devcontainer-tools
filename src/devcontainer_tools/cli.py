@@ -19,8 +19,8 @@ from rich.panel import Panel
 from rich.table import Table
 
 from . import __version__
-from .config import merge_configurations, create_common_config_template
-from .container import get_container_id, get_container_info, execute_in_container
+from .config import create_common_config_template, merge_configurations
+from .container import execute_in_container, get_container_id, get_container_info
 from .utils import find_devcontainer_json, save_json_file
 
 # Richコンソールのインスタンスを作成（カラフルな出力用）
@@ -57,19 +57,19 @@ def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug):
     forwardPortsからappPortへの変換も行います。
     """
     console.print("[bold green]Starting devcontainer...[/bold green]")
-    
+
     # プロジェクト設定を検索
     project_config = find_devcontainer_json(workspace)
     if not project_config:
         console.print("[yellow]No devcontainer.json found in workspace[/yellow]")
-    
+
     # 環境変数をパース（NAME=VALUE形式）
     env_pairs: List[Tuple[str, str]] = []
     for env_var in env:
         if '=' in env_var:
             key, value = env_var.split('=', 1)
             env_pairs.append((key, value))
-    
+
     # すべての設定をマージ
     merged_config = merge_configurations(
         common_config,
@@ -78,17 +78,17 @@ def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug):
         env_pairs,
         list(port)
     )
-    
+
     # デバッグモードの場合、マージされた設定を表示
     if debug:
         console.print("\n[bold]Merged configuration:[/bold]")
         console.print(Panel(JSON(json.dumps(merged_config, indent=2)), title="devcontainer.json"))
-    
+
     # 一時的な設定ファイルを作成
     with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
         json.dump(merged_config, f, indent=2)
         temp_config_path = f.name
-    
+
     try:
         # devcontainerコマンドを構築
         cmd = [
@@ -96,26 +96,26 @@ def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug):
             "--workspace-folder", str(workspace),
             "--override-config", temp_config_path  # マージされた設定を使用
         ]
-        
+
         # オプションフラグを追加
         if clean:
             cmd.append("--remove-existing-container")
-        
+
         if no_cache:
             cmd.append("--build-no-cache")
-        
+
         if gpu:
             cmd.extend(["--gpu-availability", "all"])
-        
+
         # コマンドを実行（対話的なため出力をキャプチャしない）
         result = subprocess.run(cmd)
-        
+
         if result.returncode == 0:
             console.print("[bold green]✓ Container started successfully![/bold green]")
         else:
             console.print("[bold red]✗ Failed to start container[/bold red]")
             sys.exit(result.returncode)
-            
+
     finally:
         # 一時ファイルをクリーンアップ
         os.unlink(temp_config_path)
@@ -124,14 +124,16 @@ def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug):
 @cli.command()
 @click.argument('command', nargs=-1, required=True)
 @click.option('--workspace', type=click.Path(exists=True, path_type=Path), default=Path.cwd(), help='ワークスペースフォルダ')
-def exec(command, workspace):
+@click.option('--no-up', is_flag=True, help='コンテナが起動していない場合でも自動起動しない')
+def exec(command, workspace, no_up):
     """
     実行中のコンテナ内でコマンドを実行する。
     
     可能な場合はdocker execを直接使用してパフォーマンスを向上させる。
-    コンテナが見つからない場合はdevcontainer execにフォールバック。
+    コンテナが見つからない場合、デフォルトで自動的にコンテナを起動する。
+    --no-upオプションを指定すると従来通りエラーで停止する。
     """
-    result = execute_in_container(workspace, list(command))
+    result = execute_in_container(workspace, list(command), auto_up=not no_up)
     sys.exit(result.returncode)
 
 
@@ -160,26 +162,26 @@ def status(workspace):
     使用中の設定ファイルなどを表示します。
     """
     console.print("[bold]DevContainer Status[/bold]\n")
-    
+
     # コンテナが実行中かチェック
     container_id = get_container_id(workspace)
-    
+
     # 情報テーブルを作成
     table = Table(title="Container Information")
     table.add_column("Property", style="cyan")
     table.add_column("Value", style="green")
-    
+
     table.add_row("Workspace", str(workspace))
-    
+
     if container_id:
         table.add_row("Status", "✓ Running")
         table.add_row("Container ID", container_id[:12])
-        
+
         # コンテナの詳細情報を取得
         info = get_container_info(container_id)
         if info:
             table.add_row("Image", info.get("Config", {}).get("Image", "Unknown"))
-            
+
             # マウント情報を表示（最初の3つ）
             mounts = info.get("Mounts", [])
             if mounts:
@@ -191,14 +193,14 @@ def status(workspace):
                 table.add_row("Mounts", "\n".join(mount_list))
     else:
         table.add_row("Status", "✗ Not running")
-    
+
     # 設定ファイルの確認
     config_path = find_devcontainer_json(workspace)
     if config_path:
         table.add_row("Config", str(config_path.relative_to(workspace)))
     else:
         table.add_row("Config", "Not found")
-    
+
     console.print(table)
 
 
@@ -215,10 +217,10 @@ def init(common_config):
         console.print(f"[yellow]File {common_config} already exists[/yellow]")
         if not click.confirm("Overwrite?"):
             return
-    
+
     # 共通設定のテンプレートを作成
     template = create_common_config_template()
-    
+
     # ファイルに書き込み
     if save_json_file(template, common_config):
         console.print(f"[green]✓ Created {common_config}[/green]")

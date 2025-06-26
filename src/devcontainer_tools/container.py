@@ -7,7 +7,7 @@ Dockerコンテナの操作に関する機能を提供します。
 import json
 import subprocess
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from rich.console import Console
 
@@ -15,7 +15,7 @@ console = Console()
 
 
 def run_command(
-    cmd: List[str], 
+    cmd: List[str],
     check: bool = True,
     capture_output: bool = True,
     text: bool = True
@@ -55,22 +55,22 @@ def get_container_id(workspace: Path) -> Optional[str]:
             "docker", "ps", "-q", "-f",
             f"label=devcontainer.local_folder={workspace}"
         ], check=False)
-        
+
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip().split('\n')[0]
-        
+
         # 代替のラベル形式で検索（VS Code形式）
         result = run_command([
             "docker", "ps", "-q", "-f",
             f"label=vscode.devcontainer.id={workspace.name}"
         ], check=False)
-        
+
         if result.returncode == 0 and result.stdout.strip():
             return result.stdout.strip().split('\n')[0]
-        
+
     except Exception:
         pass
-    
+
     return None
 
 
@@ -92,7 +92,7 @@ def get_container_info(container_id: str) -> Optional[Dict[str, Any]]:
                 return info_list[0]
     except (json.JSONDecodeError, IndexError):
         pass
-    
+
     return None
 
 
@@ -109,10 +109,42 @@ def is_container_running(workspace: Path) -> bool:
     return get_container_id(workspace) is not None
 
 
+def ensure_container_running(workspace: Path) -> bool:
+    """
+    コンテナが実行されていることを確認し、必要に応じて起動する。
+    
+    Args:
+        workspace: ワークスペースのパス
+    
+    Returns:
+        コンテナが利用可能な場合True、そうでない場合False
+    """
+    if is_container_running(workspace):
+        return True
+
+    console.print("[yellow]コンテナが起動していません。自動的に起動しています...[/yellow]")
+
+    try:
+        # devcontainer upを実行
+        cmd = ["devcontainer", "up", "--workspace-folder", str(workspace)]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode == 0:
+            console.print("[bold green]✓ コンテナの自動起動が完了しました[/bold green]")
+            return True
+        else:
+            console.print(f"[bold red]✗ コンテナの起動に失敗しました: {result.stderr}[/bold red]")
+            return False
+    except Exception as e:
+        console.print(f"[bold red]✗ コンテナの起動中にエラーが発生しました: {e}[/bold red]")
+        return False
+
+
 def execute_in_container(
     workspace: Path,
     command: List[str],
-    use_docker_exec: bool = True
+    use_docker_exec: bool = True,
+    auto_up: bool = False
 ) -> subprocess.CompletedProcess:
     """
     コンテナ内でコマンドを実行する。
@@ -121,6 +153,7 @@ def execute_in_container(
         workspace: ワークスペースのパス
         command: 実行するコマンド
         use_docker_exec: docker execを使用するかどうか
+        auto_up: コンテナが起動していない場合に自動起動するかどうか
     
     Returns:
         コマンドの実行結果
@@ -131,7 +164,15 @@ def execute_in_container(
             # docker execを直接使用（高速）
             cmd = ["docker", "exec", "-it", container_id] + command
             return subprocess.run(cmd)
-    
+        elif auto_up:
+            # 自動起動を試行
+            if ensure_container_running(workspace):
+                # 再度コンテナIDを取得
+                container_id = get_container_id(workspace)
+                if container_id:
+                    cmd = ["docker", "exec", "-it", container_id] + command
+                    return subprocess.run(cmd)
+
     # devcontainer execを使用（フォールバック）
     cmd = [
         "devcontainer", "exec",

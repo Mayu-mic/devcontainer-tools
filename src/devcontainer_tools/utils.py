@@ -6,7 +6,7 @@
 
 import json
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 from rich.console import Console
 
@@ -26,7 +26,7 @@ def load_json_file(file_path: Path) -> Dict[str, Any]:
         パースされたJSON（辞書）、エラーの場合は空の辞書
     """
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
         console.print(f"[yellow]Warning: File not found: {file_path}[/yellow]")
@@ -57,11 +57,11 @@ def find_devcontainer_json(workspace: Path) -> Optional[Path]:
         workspace / ".devcontainer" / "devcontainer.json",
         workspace / "devcontainer.json"
     ]
-    
+
     for candidate in candidates:
         if candidate.exists():
             return candidate
-    
+
     return None
 
 
@@ -82,12 +82,12 @@ def parse_mount_string(mount_str: str) -> str:
     # すでに正しい形式の場合はそのまま返す
     if "source=" in mount_str and "target=" in mount_str:
         return mount_str
-    
+
     # source:target形式の場合は変換
     parts = mount_str.split(':')
     if len(parts) == 2:
         return f"source={parts[0]},target={parts[1]},type=bind,consistency=cached"
-    
+
     # その他の場合はそのまま返す
     return mount_str
 
@@ -107,7 +107,7 @@ def save_json_file(data: Dict[str, Any], file_path: Path, indent: int = 2) -> bo
     try:
         # ディレクトリが存在しない場合は作成
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        
+
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=indent, ensure_ascii=False)
         return True

@@ -4,12 +4,10 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from devcontainer_tools.config import (
+    create_common_config_template,
     deep_merge,
-    merge_configurations, 
-    create_common_config_template
+    merge_configurations,
 )
 
 
@@ -21,7 +19,7 @@ class TestDeepMerge:
         target = {"a": 1, "b": 2}
         source = {"b": 3, "c": 4}
         result = deep_merge(target, source)
-        
+
         assert result == {"a": 1, "b": 3, "c": 4}
 
     def test_nested_dict_merge(self):
@@ -37,7 +35,7 @@ class TestDeepMerge:
             }
         }
         result = deep_merge(target, source)
-        
+
         expected = {
             "features": {
                 "node": {"version": "16"},
@@ -51,7 +49,7 @@ class TestDeepMerge:
         target = {"ports": [8000, 3000]}
         source = {"ports": [3000, 9000]}
         result = deep_merge(target, source)
-        
+
         # Should contain all unique ports
         assert set(result["ports"]) == {8000, 3000, 9000}
 
@@ -68,7 +66,7 @@ class TestDeepMerge:
             ]
         }
         result = deep_merge(target, source)
-        
+
         assert len(result["mounts"]) == 2
         assert "source=/host1,target=/container1" in result["mounts"]
         assert "source=/host2,target=/container2" in result["mounts"]
@@ -78,7 +76,7 @@ class TestDeepMerge:
         target = {"name": "old"}
         source = {"name": "new"}
         result = deep_merge(target, source)
-        
+
         assert result["name"] == "new"
 
 
@@ -127,7 +125,7 @@ class TestMergeConfigurations:
         """Test adding additional mounts."""
         additional_mounts = ["/host:/container"]
         result = merge_configurations(None, None, additional_mounts, [], [])
-        
+
         assert "mounts" in result
         assert "source=/host,target=/container,type=bind,consistency=cached" in result["mounts"]
 
@@ -135,7 +133,7 @@ class TestMergeConfigurations:
         """Test adding additional environment variables."""
         additional_env = [("NODE_ENV", "development"), ("DEBUG", "true")]
         result = merge_configurations(None, None, [], additional_env, [])
-        
+
         assert result["remoteEnv"]["NODE_ENV"] == "development"
         assert result["remoteEnv"]["DEBUG"] == "true"
 
@@ -143,7 +141,7 @@ class TestMergeConfigurations:
         """Test adding additional ports."""
         additional_ports = ["8080", "9000"]
         result = merge_configurations(None, None, [], [], additional_ports)
-        
+
         assert result["appPort"] == ["8080", "9000"]
 
     def test_full_merge_scenario(self):
@@ -159,7 +157,7 @@ class TestMergeConfigurations:
             json.dump(common_config, f)
             common_path = Path(f.name)
 
-        # Create project config  
+        # Create project config
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
             project_config = {
                 "name": "test-project",
@@ -179,7 +177,7 @@ class TestMergeConfigurations:
                 [("TEST_VAR", "test_value")],
                 ["9000"]
             )
-            
+
             # Check that all configurations are merged
             assert result["name"] == "test-project"
             assert result["forwardPorts"] == [8000]
@@ -188,7 +186,7 @@ class TestMergeConfigurations:
             assert "python" in result["features"]
             assert len(result["mounts"]) == 2  # common + additional
             assert result["remoteEnv"]["TEST_VAR"] == "test_value"
-            
+
         finally:
             common_path.unlink()
             project_path.unlink()
@@ -200,18 +198,18 @@ class TestCreateCommonConfigTemplate:
     def test_template_structure(self):
         """Test that the template has the expected structure."""
         template = create_common_config_template()
-        
+
         assert "features" in template
-        assert "mounts" in template  
+        assert "mounts" in template
         assert "customizations" in template
-        
+
         # Check for Claude Code feature
         assert "ghcr.io/anthropics/devcontainer-features/claude-code:latest" in template["features"]
-        
+
         # Check for Claude mount
         claude_mount = "source=${env:HOME}${env:USERPROFILE}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached"
         assert claude_mount in template["mounts"]
-        
+
         # Check VSCode customizations
         assert "vscode" in template["customizations"]
         assert "extensions" in template["customizations"]["vscode"]

@@ -6,7 +6,7 @@ devcontainer.jsonの設定をマージ・管理する機能を提供します。
 
 import json
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .utils import load_json_file, parse_mount_string
 
@@ -26,7 +26,7 @@ def deep_merge(target: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]
         マージされた辞書
     """
     result = target.copy()
-    
+
     for key, value in source.items():
         if key in result:
             # 両方が辞書の場合は再帰的にマージ
@@ -49,7 +49,7 @@ def deep_merge(target: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]
         else:
             # キーが存在しない場合は追加
             result[key] = value
-    
+
     return result
 
 
@@ -83,23 +83,23 @@ def merge_configurations(
         マージされた設定辞書
     """
     merged = {}
-    
+
     # 共通設定を読み込み（基本設定）
     if common_config_path and common_config_path.exists():
         common_config = load_json_file(common_config_path)
         merged = deep_merge(merged, common_config)
-    
+
     # プロジェクト設定を読み込み（共通設定を上書き）
     if project_config_path and project_config_path.exists():
         project_config = load_json_file(project_config_path)
-        
+
         # forwardPorts -> appPort の自動変換
         # VS CodeのforwardPortsとdevcontainerのappPortは同じ目的
         if "forwardPorts" in project_config:
             project_config["appPort"] = project_config["forwardPorts"]
-        
+
         merged = deep_merge(merged, project_config)
-    
+
     # コマンドラインから追加マウントを設定
     if additional_mounts:
         if "mounts" not in merged:
@@ -109,14 +109,14 @@ def merge_configurations(
             # 重複を避けるため、既存のマウントリストにない場合のみ追加
             if parsed_mount not in merged["mounts"]:
                 merged["mounts"].append(parsed_mount)
-    
+
     # コマンドラインから追加環境変数を設定
     if additional_env:
         if "remoteEnv" not in merged:
             merged["remoteEnv"] = {}
         for key, value in additional_env:
             merged["remoteEnv"][key] = value
-    
+
     # コマンドラインから追加ポートを設定
     if additional_ports:
         if "appPort" not in merged:
@@ -124,12 +124,12 @@ def merge_configurations(
         elif not isinstance(merged["appPort"], list):
             # appPortが単一の値の場合はリストに変換
             merged["appPort"] = [merged["appPort"]]
-        
+
         # ポートをそのまま追加（パースなし）
         for port in additional_ports:
             if port not in merged["appPort"]:
                 merged["appPort"].append(port)
-    
+
     return merged
 
 

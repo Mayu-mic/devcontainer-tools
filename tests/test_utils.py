@@ -4,13 +4,11 @@ import json
 import tempfile
 from pathlib import Path
 
-import pytest
-
 from devcontainer_tools.utils import (
-    load_json_file,
     find_devcontainer_json,
+    load_json_file,
     parse_mount_string,
-    save_json_file
+    save_json_file,
 )
 
 
@@ -20,7 +18,7 @@ class TestLoadJsonFile:
     def test_load_valid_json(self):
         """Test loading a valid JSON file."""
         test_data = {"name": "test", "version": "1.0"}
-        
+
         with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
             json.dump(test_data, f)
             file_path = Path(f.name)
@@ -71,10 +69,10 @@ class TestFindDevcontainerJson:
             workspace = Path(temp_dir)
             devcontainer_dir = workspace / ".devcontainer"
             devcontainer_dir.mkdir()
-            
+
             config_file = devcontainer_dir / "devcontainer.json"
             config_file.write_text('{"name": "test"}')
-            
+
             result = find_devcontainer_json(workspace)
             assert result == config_file
 
@@ -84,7 +82,7 @@ class TestFindDevcontainerJson:
             workspace = Path(temp_dir)
             config_file = workspace / "devcontainer.json"
             config_file.write_text('{"name": "test"}')
-            
+
             result = find_devcontainer_json(workspace)
             assert result == config_file
 
@@ -92,17 +90,17 @@ class TestFindDevcontainerJson:
         """Test that .devcontainer/devcontainer.json is preferred over root."""
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
-            
+
             # Create both files
             devcontainer_dir = workspace / ".devcontainer"
             devcontainer_dir.mkdir()
-            
+
             preferred_file = devcontainer_dir / "devcontainer.json"
             preferred_file.write_text('{"name": "preferred"}')
-            
+
             root_file = workspace / "devcontainer.json"
             root_file.write_text('{"name": "root"}')
-            
+
             result = find_devcontainer_json(workspace)
             assert result == preferred_file
 
@@ -149,14 +147,14 @@ class TestSaveJsonFile:
     def test_save_valid_data(self):
         """Test saving valid JSON data."""
         test_data = {"name": "test", "version": "1.0"}
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             file_path = Path(temp_dir) / "test.json"
             result = save_json_file(test_data, file_path)
-            
+
             assert result is True
             assert file_path.exists()
-            
+
             # Verify content
             loaded_data = load_json_file(file_path)
             assert loaded_data == test_data
@@ -164,11 +162,11 @@ class TestSaveJsonFile:
     def test_save_creates_directory(self):
         """Test that save_json_file creates parent directories."""
         test_data = {"test": "data"}
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             file_path = Path(temp_dir) / "nested" / "dir" / "test.json"
             result = save_json_file(test_data, file_path)
-            
+
             assert result is True
             assert file_path.exists()
             assert file_path.parent.exists()
@@ -176,13 +174,13 @@ class TestSaveJsonFile:
     def test_save_with_custom_indent(self):
         """Test saving with custom indentation."""
         test_data = {"name": "test", "nested": {"key": "value"}}
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             file_path = Path(temp_dir) / "test.json"
             result = save_json_file(test_data, file_path, indent=4)
-            
+
             assert result is True
-            
+
             # Check that the file is properly indented
             content = file_path.read_text()
             assert "    " in content  # 4-space indentation
@@ -191,6 +189,6 @@ class TestSaveJsonFile:
         """Test saving to a read-only location fails gracefully."""
         test_data = {"test": "data"}
         readonly_path = Path("/root/readonly/test.json")  # Assuming no write access
-        
+
         result = save_json_file(test_data, readonly_path)
         assert result is False
