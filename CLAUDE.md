@@ -14,7 +14,7 @@ uv sync --dev
 uv pip install -e .[dev]
 
 # パッケージのローカルインストール（CLI利用のため）
-uv tool install --from . --name dev
+uv tool install .
 ```
 
 ## 開発用コマンド
@@ -54,8 +54,8 @@ uv run mypy src/
 uv build
 
 # 開発モードでの再インストール
-uv tool uninstall dev
-uv tool install --from . --name dev
+uv tool uninstall devcontainer-tools
+uv tool install .
 ```
 
 ## アーキテクチャ
