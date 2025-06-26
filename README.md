@@ -13,11 +13,19 @@
 
 ## 📦 インストール
 
+### 前提条件
+
+devcontainer CLIが必要です。インストールされていない場合は以下を実行してください：
+
+```bash
+npm install -g @devcontainers/cli
+```
+
 ### uvツールとしてインストール（推奨）
 
 ```bash
 # GitHubから直接インストール
-uv tool install --from git+https://github.com/your-team/devcontainer-tools --name dev
+uv tool install --from git+https://github.com/Mayu-mic/devcontainer-tools --name dev
 
 # ローカルディレクトリからインストール
 cd devcontainer-scripts
@@ -27,9 +35,27 @@ uv tool install --from . --name dev
 ### 開発者向けインストール
 
 ```bash
-git clone https://github.com/your-team/devcontainer-tools
+git clone https://github.com/Mayu-mic/devcontainer-tools
 cd devcontainer-tools
-uv pip install -e .[dev]
+
+# ワンコマンドでセットアップ
+make setup
+```
+
+### 開発用コマンド
+
+```bash
+# 全品質チェック実行
+make check
+
+# 個別コマンド
+make test           # テスト実行
+make lint           # リント実行
+make format         # フォーマット
+make type-check     # 型チェック
+
+# Pre-commit手動実行
+make pre-commit-run
 ```
 
 ## 🚀 使い方
@@ -63,6 +89,9 @@ dev up --env NODE_ENV=development --env DEBUG=true
 
 # デバッグモードで設定内容を確認
 dev up --debug
+
+# 設定をマージして確認のみ（実際の起動は行わない）
+dev up --dry-run
 ```
 
 ### コンテナ操作
@@ -177,11 +206,16 @@ dev up --mount /host/path:/container/path
 - Docker
 - devcontainer CLI
 
+devcontainer CLIのインストール:
+```bash
+npm install -g @devcontainers/cli
+```
+
 ### 開発セットアップ
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/your-team/devcontainer-tools
+git clone https://github.com/Mayu-mic/devcontainer-tools
 cd devcontainer-tools
 
 # 開発依存関係をインストール
@@ -231,6 +265,7 @@ dev up [OPTIONS]
 - `--workspace PATH`: ワークスペースフォルダ（デフォルト: カレントディレクトリ）
 - `--common-config PATH`: 共通設定ファイル（デフォルト: devcontainer.common.json）
 - `--debug`: デバッグ情報を表示
+- `--dry-run`: 設定をマージして表示のみ（実際の起動は行わない）
 
 ### `dev exec`
 

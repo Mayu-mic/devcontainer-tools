@@ -28,10 +28,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-team/devcontainer-tools"
-Documentation = "https://github.com/your-team/devcontainer-tools#readme"
-Repository = "https://github.com/your-team/devcontainer-tools.git"
-Issues = "https://github.com/your-team/devcontainer-tools/issues"
+Homepage = "https://github.com/Mayu-mic/devcontainer-tools"
+Documentation = "https://github.com/Mayu-mic/devcontainer-tools#readme"
+Repository = "https://github.com/Mayu-mic/devcontainer-tools.git"
+Issues = "https://github.com/Mayu-mic/devcontainer-tools/issues"
 
 [project.scripts]
 dev = "devcontainer_tools.cli:cli"
@@ -44,6 +44,7 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
     "black>=23.0.0",
+    "pre-commit>=3.0.0",
 ]
 
 [build-system]
@@ -56,6 +57,8 @@ packages = ["src/devcontainer_tools"]
 [tool.ruff]
 line-length = 100
 target-version = "py38"
+
+[tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
@@ -69,7 +72,7 @@ ignore = [
     "E501",  # line too long (handled by black)
 ]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]  # allow asserts in tests
 
 [tool.black]
