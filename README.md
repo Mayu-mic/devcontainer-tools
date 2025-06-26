@@ -13,6 +13,14 @@
 
 ## 📦 インストール
 
+### 前提条件
+
+devcontainer CLIが必要です。インストールされていない場合は以下を実行してください：
+
+```bash
+npm install -g @devcontainers/cli
+```
+
 ### uvツールとしてインストール（推奨）
 
 ```bash
@@ -29,11 +37,25 @@ uv tool install --from . --name dev
 ```bash
 git clone https://github.com/Mayu-mic/devcontainer-tools
 cd devcontainer-tools
-uv sync --dev
-uv pip install -e .[dev]
 
-# 開発中の変更を即座に反映させるためにeditableモードでインストール
-uv tool install --editable .
+# ワンコマンドでセットアップ
+make setup
+```
+
+### 開発用コマンド
+
+```bash
+# 全品質チェック実行
+make check
+
+# 個別コマンド
+make test           # テスト実行
+make lint           # リント実行
+make format         # フォーマット
+make type-check     # 型チェック
+
+# Pre-commit手動実行
+make pre-commit-run
 ```
 
 ## 🚀 使い方
@@ -183,6 +205,11 @@ dev up --mount /host/path:/container/path
 - uv
 - Docker
 - devcontainer CLI
+
+devcontainer CLIのインストール:
+```bash
+npm install -g @devcontainers/cli
+```
 
 ### 開発セットアップ
 

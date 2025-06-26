@@ -19,7 +19,7 @@ class TestLoadJsonFile:
         """Test loading a valid JSON file."""
         test_data = {"name": "test", "version": "1.0"}
 
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(test_data, f)
             file_path = Path(f.name)
 
@@ -37,7 +37,7 @@ class TestLoadJsonFile:
 
     def test_load_invalid_json(self):
         """Test loading invalid JSON returns empty dict."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write("{ invalid json }")
             file_path = Path(f.name)
 
@@ -49,7 +49,7 @@ class TestLoadJsonFile:
 
     def test_load_empty_file(self):
         """Test loading an empty file returns empty dict."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             f.write("")
             file_path = Path(f.name)
 
