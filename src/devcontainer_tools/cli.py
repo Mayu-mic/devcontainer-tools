@@ -49,7 +49,8 @@ def cli():
 @click.option('--workspace', type=click.Path(exists=True, path_type=Path), default=Path.cwd(), help='ワークスペースフォルダ')
 @click.option('--common-config', type=click.Path(path_type=Path), default=Path.home() / '.config' / 'devcontainer.common.json', help='共通設定ファイル')
 @click.option('--debug', is_flag=True, help='デバッグ情報を表示')
-def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug):
+@click.option('--dry-run', is_flag=True, help='設定をマージして表示のみ（実際の起動は行わない）')
+def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug, dry_run):
     """
     開発コンテナを起動または作成する。
     
@@ -78,6 +79,35 @@ def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug):
         env_pairs,
         list(port)
     )
+
+    # dry-runモードの場合は設定表示のみ
+    if dry_run:
+        console.print("\n[bold blue]🔍 Dry Run Mode - 設定確認のみ[/bold blue]")
+        
+        # 設定ファイルの情報を表示
+        console.print("\n[bold]設定ソース:[/bold]")
+        if project_config:
+            console.print(f"📄 プロジェクト設定: {project_config.relative_to(workspace)}")
+        else:
+            console.print("📄 プロジェクト設定: [yellow]見つかりません[/yellow]")
+        
+        if common_config.exists():
+            console.print(f"🌐 共通設定: {common_config}")
+        else:
+            console.print("🌐 共通設定: [yellow]見つかりません[/yellow]")
+        
+        if mount or env or port:
+            console.print("⚙️  コマンドラインオプション:")
+            if mount:
+                console.print(f"   マウント: {list(mount)}")
+            if env:
+                console.print(f"   環境変数: {list(env)}")
+            if port:
+                console.print(f"   ポート: {list(port)}")
+        
+        console.print(Panel(JSON(json.dumps(merged_config, indent=2)), title="マージ後の devcontainer.json"))
+        console.print("\n[green]✅ 設定の確認が完了しました。実際の起動は行いません。[/green]")
+        return
 
     # デバッグモードの場合、マージされた設定を表示
     if debug:
