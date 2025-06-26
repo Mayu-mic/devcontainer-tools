@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dev rebuild` - Clean rebuild containers from scratch
 - `dev init` - Initialize common configuration templates
 
-## [0.0.1] - 2024-12-26
+## [0.0.1] - 2025-06-26
 
 ### Added
 - Initial development release
