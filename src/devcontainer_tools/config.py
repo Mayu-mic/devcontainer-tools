@@ -65,8 +65,11 @@ def merge_configurations(
     
     マージ順序（優先度順）:
     1. コマンドラインオプション（最優先）
-    2. プロジェクト設定（.devcontainer/devcontainer.json）
-    3. 共通設定（devcontainer.common.json）
+    2. プロジェクト設定（.devcontainer/devcontainer.json）（ベース）
+    3. 共通設定（devcontainer.common.json）（補完のみ）
+    
+    プロジェクト設定をベースとし、共通設定で不足部分のみを補完する。
+    プロジェクト設定が存在する項目は共通設定で上書きされない。
     
     特殊な処理:
     - forwardPortsをappPortに自動変換
@@ -82,14 +85,7 @@ def merge_configurations(
     Returns:
         マージされた設定辞書
     """
-    merged = {}
-
-    # 共通設定を読み込み（基本設定）
-    if common_config_path and common_config_path.exists():
-        common_config = load_json_file(common_config_path)
-        merged = deep_merge(merged, common_config)
-
-    # プロジェクト設定を読み込み（共通設定を上書き）
+    # プロジェクト設定をベースとして開始
     if project_config_path and project_config_path.exists():
         project_config = load_json_file(project_config_path)
 
@@ -98,7 +94,15 @@ def merge_configurations(
         if "forwardPorts" in project_config:
             project_config["appPort"] = project_config["forwardPorts"]
 
-        merged = deep_merge(merged, project_config)
+        merged = project_config.copy()
+    else:
+        merged = {}
+
+    # 共通設定で不足部分を補完（プロジェクト設定を優先）
+    if common_config_path and common_config_path.exists():
+        common_config = load_json_file(common_config_path)
+        # 共通設定をベースに、プロジェクト設定で上書き
+        merged = deep_merge(common_config, merged)
 
     # コマンドラインから追加マウントを設定
     if additional_mounts:
