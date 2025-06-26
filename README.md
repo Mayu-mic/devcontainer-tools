@@ -13,6 +13,14 @@
 
 ## 📦 インストール
 
+### 前提条件
+
+devcontainer CLIが必要です。インストールされていない場合は以下を実行してください：
+
+```bash
+npm install -g @devcontainers/cli
+```
+
 ### uvツールとしてインストール（推奨）
 
 ```bash
@@ -183,6 +191,11 @@ dev up --mount /host/path:/container/path
 - uv
 - Docker
 - devcontainer CLI
+
+devcontainer CLIのインストール:
+```bash
+npm install -g @devcontainers/cli
+```
 
 ### 開発セットアップ
 
