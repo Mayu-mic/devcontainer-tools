@@ -29,7 +29,11 @@ uv tool install --from . --name dev
 ```bash
 git clone https://github.com/your-team/devcontainer-tools
 cd devcontainer-tools
+uv sync --dev
 uv pip install -e .[dev]
+
+# 開発中の変更を即座に反映させるためにeditableモードでインストール
+uv tool install --editable .
 ```
 
 ## 🚀 使い方
@@ -63,6 +67,9 @@ dev up --env NODE_ENV=development --env DEBUG=true
 
 # デバッグモードで設定内容を確認
 dev up --debug
+
+# 設定をマージして確認のみ（実際の起動は行わない）
+dev up --dry-run
 ```
 
 ### コンテナ操作
@@ -231,6 +238,7 @@ dev up [OPTIONS]
 - `--workspace PATH`: ワークスペースフォルダ（デフォルト: カレントディレクトリ）
 - `--common-config PATH`: 共通設定ファイル（デフォルト: devcontainer.common.json）
 - `--debug`: デバッグ情報を表示
+- `--dry-run`: 設定をマージして表示のみ（実際の起動は行わない）
 
 ### `dev exec`
 

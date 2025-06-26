@@ -14,7 +14,8 @@ uv sync --dev
 uv pip install -e .[dev]
 
 # パッケージのローカルインストール（CLI利用のため）
-uv tool install .
+# 開発中は --editable を使用して変更を即座に反映
+uv tool install --editable .
 ```
 
 ## 開発用コマンド
@@ -55,7 +56,7 @@ uv build
 
 # 開発モードでの再インストール
 uv tool uninstall devcontainer-tools
-uv tool install .
+uv tool install --editable .
 ```
 
 ## アーキテクチャ
@@ -80,6 +81,7 @@ uv tool install .
 ### CLIコマンドの処理フロー
 
 - **up**: 設定マージ → 一時ファイル作成 → devcontainer CLIに委譲
+  - `--dry-run`オプションで設定確認のみ可能
 - **exec**: コンテナID検出 → docker exec優先、フォールバックでdevcontainer exec
 - **status**: コンテナID取得 → docker inspectで詳細情報表示
 
@@ -101,6 +103,9 @@ uv tool install .
 
 ### Rich Console出力
 全てのユーザー向け出力はrichライブラリを使用。色付き、テーブル表示対応。
+
+### JSONC（コメント付きJSON）サポート
+`devcontainer.json`のコメント（`//`）をサポートするため、`json5`ライブラリを使用してパースを実行。
 
 ## 日本語対応
 
