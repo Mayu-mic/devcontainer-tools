@@ -28,7 +28,7 @@ def load_json_file(file_path: Path) -> Dict[str, Any]:
         パースされたJSON（辞書）、エラーの場合は空の辞書
     """
     try:
-        with open(file_path, encoding='utf-8') as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
         # 空ファイルの場合は空の辞書を返す
         if not content.strip():
@@ -38,7 +38,7 @@ def load_json_file(file_path: Path) -> Dict[str, Any]:
     except FileNotFoundError:
         console.print(f"[yellow]Warning: File not found: {file_path}[/yellow]")
         return {}
-    except (ValueError) as e:
+    except ValueError as e:
         console.print(f"[yellow]Warning: Invalid JSON in {file_path}: {e}[/yellow]")
         return {}
     except Exception as e:
@@ -62,7 +62,7 @@ def find_devcontainer_json(workspace: Path) -> Optional[Path]:
     """
     candidates = [
         workspace / ".devcontainer" / "devcontainer.json",
-        workspace / "devcontainer.json"
+        workspace / "devcontainer.json",
     ]
 
     for candidate in candidates:
@@ -91,7 +91,7 @@ def parse_mount_string(mount_str: str) -> str:
         return mount_str
 
     # source:target形式の場合は変換
-    parts = mount_str.split(':')
+    parts = mount_str.split(":")
     if len(parts) == 2:
         return f"source={parts[0]},target={parts[1]},type=bind,consistency=cached"
 
@@ -115,7 +115,7 @@ def save_json_file(data: Dict[str, Any], file_path: Path, indent: int = 2) -> bo
         # ディレクトリが存在しない場合は作成
         file_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=indent, ensure_ascii=False)
         return True
     except Exception as e:

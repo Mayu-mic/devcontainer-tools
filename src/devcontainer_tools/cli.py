@@ -40,16 +40,28 @@ def cli():
 
 
 @cli.command()
-@click.option('--clean', is_flag=True, help='既存のコンテナを削除してから起動')
-@click.option('--no-cache', is_flag=True, help='キャッシュを使用せずにビルド')
-@click.option('--gpu', is_flag=True, help='GPU サポートを有効化')
-@click.option('--mount', multiple=True, help='追加マウント (形式: source:target または完全なマウント文字列)')
-@click.option('--env', multiple=True, help='追加環境変数 (形式: NAME=VALUE)')
-@click.option('--port', multiple=True, help='追加ポートフォワード (形式: PORT または PORT:PORT)')
-@click.option('--workspace', type=click.Path(exists=True, path_type=Path), default=Path.cwd(), help='ワークスペースフォルダ')
-@click.option('--common-config', type=click.Path(path_type=Path), default=Path.home() / '.config' / 'devcontainer.common.json', help='共通設定ファイル')
-@click.option('--debug', is_flag=True, help='デバッグ情報を表示')
-@click.option('--dry-run', is_flag=True, help='設定をマージして表示のみ（実際の起動は行わない）')
+@click.option("--clean", is_flag=True, help="既存のコンテナを削除してから起動")
+@click.option("--no-cache", is_flag=True, help="キャッシュを使用せずにビルド")
+@click.option("--gpu", is_flag=True, help="GPU サポートを有効化")
+@click.option(
+    "--mount", multiple=True, help="追加マウント (形式: source:target または完全なマウント文字列)"
+)
+@click.option("--env", multiple=True, help="追加環境変数 (形式: NAME=VALUE)")
+@click.option("--port", multiple=True, help="追加ポートフォワード (形式: PORT または PORT:PORT)")
+@click.option(
+    "--workspace",
+    type=click.Path(exists=True, path_type=Path),
+    default=Path.cwd(),
+    help="ワークスペースフォルダ",
+)
+@click.option(
+    "--common-config",
+    type=click.Path(path_type=Path),
+    default=Path.home() / ".config" / "devcontainer.common.json",
+    help="共通設定ファイル",
+)
+@click.option("--debug", is_flag=True, help="デバッグ情報を表示")
+@click.option("--dry-run", is_flag=True, help="設定をマージして表示のみ（実際の起動は行わない）")
 def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug, dry_run):
     """
     開発コンテナを起動または作成する。
@@ -67,17 +79,13 @@ def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug, 
     # 環境変数をパース（NAME=VALUE形式）
     env_pairs: List[Tuple[str, str]] = []
     for env_var in env:
-        if '=' in env_var:
-            key, value = env_var.split('=', 1)
+        if "=" in env_var:
+            key, value = env_var.split("=", 1)
             env_pairs.append((key, value))
 
     # すべての設定をマージ
     merged_config = merge_configurations(
-        common_config,
-        project_config,
-        list(mount),
-        env_pairs,
-        list(port)
+        common_config, project_config, list(mount), env_pairs, list(port)
     )
 
     # dry-runモードの場合は設定表示のみ
@@ -105,7 +113,9 @@ def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug, 
             if port:
                 console.print(f"   ポート: {list(port)}")
 
-        console.print(Panel(JSON(json.dumps(merged_config, indent=2)), title="マージ後の devcontainer.json"))
+        console.print(
+            Panel(JSON(json.dumps(merged_config, indent=2)), title="マージ後の devcontainer.json")
+        )
         console.print("\n[green]✅ 設定の確認が完了しました。実際の起動は行いません。[/green]")
         return
 
@@ -115,16 +125,19 @@ def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug, 
         console.print(Panel(JSON(json.dumps(merged_config, indent=2)), title="devcontainer.json"))
 
     # 一時的な設定ファイルを作成
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump(merged_config, f, indent=2)
         temp_config_path = f.name
 
     try:
         # devcontainerコマンドを構築
         cmd = [
-            "devcontainer", "up",
-            "--workspace-folder", str(workspace),
-            "--override-config", temp_config_path  # マージされた設定を使用
+            "devcontainer",
+            "up",
+            "--workspace-folder",
+            str(workspace),
+            "--override-config",
+            temp_config_path,  # マージされた設定を使用
         ]
 
         # オプションフラグを追加
@@ -152,9 +165,14 @@ def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug, 
 
 
 @cli.command()
-@click.argument('command', nargs=-1, required=True)
-@click.option('--workspace', type=click.Path(exists=True, path_type=Path), default=Path.cwd(), help='ワークスペースフォルダ')
-@click.option('--no-up', is_flag=True, help='コンテナが起動していない場合でも自動起動しない')
+@click.argument("command", nargs=-1, required=True)
+@click.option(
+    "--workspace",
+    type=click.Path(exists=True, path_type=Path),
+    default=Path.cwd(),
+    help="ワークスペースフォルダ",
+)
+@click.option("--no-up", is_flag=True, help="コンテナが起動していない場合でも自動起動しない")
 def exec(command, workspace, no_up):
     """
     実行中のコンテナ内でコマンドを実行する。
@@ -168,7 +186,12 @@ def exec(command, workspace, no_up):
 
 
 @cli.command()
-@click.option('--workspace', type=click.Path(exists=True, path_type=Path), default=Path.cwd(), help='ワークスペースフォルダ')
+@click.option(
+    "--workspace",
+    type=click.Path(exists=True, path_type=Path),
+    default=Path.cwd(),
+    help="ワークスペースフォルダ",
+)
 @click.pass_context
 def rebuild(ctx, workspace):
     """
@@ -183,7 +206,12 @@ def rebuild(ctx, workspace):
 
 
 @cli.command()
-@click.option('--workspace', type=click.Path(exists=True, path_type=Path), default=Path.cwd(), help='ワークスペースフォルダ')
+@click.option(
+    "--workspace",
+    type=click.Path(exists=True, path_type=Path),
+    default=Path.cwd(),
+    help="ワークスペースフォルダ",
+)
 def status(workspace):
     """
     コンテナのステータスと設定を表示する。
@@ -217,7 +245,9 @@ def status(workspace):
             if mounts:
                 mount_list = []
                 for mount in mounts[:3]:
-                    mount_list.append(f"• {mount.get('Source', 'Unknown')} → {mount.get('Destination', 'Unknown')}")
+                    mount_list.append(
+                        f"• {mount.get('Source', 'Unknown')} → {mount.get('Destination', 'Unknown')}"
+                    )
                 if len(mounts) > 3:
                     mount_list.append(f"• ... and {len(mounts) - 3} more")
                 table.add_row("Mounts", "\n".join(mount_list))
@@ -235,7 +265,12 @@ def status(workspace):
 
 
 @cli.command()
-@click.option('--common-config', type=click.Path(path_type=Path), default=Path.home() / '.config' / 'devcontainer.common.json', help='作成する共通設定ファイル')
+@click.option(
+    "--common-config",
+    type=click.Path(path_type=Path),
+    default=Path.home() / ".config" / "devcontainer.common.json",
+    help="作成する共通設定ファイル",
+)
 def init(common_config):
     """
     共通設定テンプレートを初期化する。
@@ -262,5 +297,5 @@ def init(common_config):
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli()

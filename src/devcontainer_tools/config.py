@@ -58,7 +58,7 @@ def merge_configurations(
     project_config_path: Optional[Path],
     additional_mounts: List[str],
     additional_env: List[Tuple[str, str]],
-    additional_ports: List[str]
+    additional_ports: List[str],
 ) -> Dict[str, Any]:
     """
     すべての設定をマージする。
@@ -159,7 +159,7 @@ def create_common_config_template() -> Dict[str, Any]:
                     # ここに共通で使用する拡張機能を追加
                 ]
             }
-        }
+        },
     }
 
 

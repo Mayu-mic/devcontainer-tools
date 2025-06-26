@@ -24,24 +24,11 @@ class TestDeepMerge:
 
     def test_nested_dict_merge(self):
         """Test merging nested dictionaries."""
-        target = {
-            "features": {
-                "node": {"version": "16"}
-            }
-        }
-        source = {
-            "features": {
-                "python": {"version": "3.9"}
-            }
-        }
+        target = {"features": {"node": {"version": "16"}}}
+        source = {"features": {"python": {"version": "3.9"}}}
         result = deep_merge(target, source)
 
-        expected = {
-            "features": {
-                "node": {"version": "16"},
-                "python": {"version": "3.9"}
-            }
-        }
+        expected = {"features": {"node": {"version": "16"}, "python": {"version": "3.9"}}}
         assert result == expected
 
     def test_list_merge(self):
@@ -55,16 +42,8 @@ class TestDeepMerge:
 
     def test_list_merge_complex(self):
         """Test merging lists with complex objects."""
-        target = {
-            "mounts": [
-                "source=/host1,target=/container1"
-            ]
-        }
-        source = {
-            "mounts": [
-                "source=/host2,target=/container2"
-            ]
-        }
+        target = {"mounts": ["source=/host1,target=/container1"]}
+        source = {"mounts": ["source=/host2,target=/container2"]}
         result = deep_merge(target, source)
 
         assert len(result["mounts"]) == 2
@@ -90,12 +69,8 @@ class TestMergeConfigurations:
 
     def test_merge_with_common_config_only(self):
         """Test merging with only common configuration."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            common_config = {
-                "features": {
-                    "claude-code": {}
-                }
-            }
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            common_config = {"features": {"claude-code": {}}}
             json.dump(common_config, f)
             common_path = Path(f.name)
 
@@ -107,10 +82,8 @@ class TestMergeConfigurations:
 
     def test_forward_ports_conversion(self):
         """Test automatic forwardPorts to appPort conversion."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-            project_config = {
-                "forwardPorts": [8000, 3000]
-            }
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            project_config = {"forwardPorts": [8000, 3000]}
             json.dump(project_config, f)
             project_path = Path(f.name)
 
@@ -147,24 +120,20 @@ class TestMergeConfigurations:
     def test_full_merge_scenario(self):
         """Test a complete merge scenario with all types of configurations."""
         # Create common config
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             common_config = {
-                "features": {
-                    "claude-code": {}
-                },
-                "mounts": ["source=/common,target=/common"]
+                "features": {"claude-code": {}},
+                "mounts": ["source=/common,target=/common"],
             }
             json.dump(common_config, f)
             common_path = Path(f.name)
 
         # Create project config
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             project_config = {
                 "name": "test-project",
                 "forwardPorts": [8000],
-                "features": {
-                    "python": {"version": "3.9"}
-                }
+                "features": {"python": {"version": "3.9"}},
             }
             json.dump(project_config, f)
             project_path = Path(f.name)
@@ -175,7 +144,7 @@ class TestMergeConfigurations:
                 project_path,
                 ["/additional:/mount"],
                 [("TEST_VAR", "test_value")],
-                ["9000"]
+                ["9000"],
             )
 
             # Check that all configurations are merged

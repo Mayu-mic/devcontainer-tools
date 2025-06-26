@@ -17,10 +17,7 @@ console = Console()
 
 
 def run_command(
-    cmd: List[str],
-    check: bool = True,
-    capture_output: bool = True,
-    text: bool = True
+    cmd: List[str], check: bool = True, capture_output: bool = True, text: bool = True
 ) -> subprocess.CompletedProcess[str]:
     """
     コマンドを実行し、結果を返す。
@@ -53,22 +50,22 @@ def get_container_id(workspace: Path) -> Optional[str]:
     """
     try:
         # ワークスペースフォルダのラベルで検索
-        result = run_command([
-            "docker", "ps", "-q", "-f",
-            f"label=devcontainer.local_folder={workspace}"
-        ], check=False)
+        result = run_command(
+            ["docker", "ps", "-q", "-f", f"label=devcontainer.local_folder={workspace}"],
+            check=False,
+        )
 
         if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip().split('\n')[0]
+            return result.stdout.strip().split("\n")[0]
 
         # 代替のラベル形式で検索（VS Code形式）
-        result = run_command([
-            "docker", "ps", "-q", "-f",
-            f"label=vscode.devcontainer.id={workspace.name}"
-        ], check=False)
+        result = run_command(
+            ["docker", "ps", "-q", "-f", f"label=vscode.devcontainer.id={workspace.name}"],
+            check=False,
+        )
 
         if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip().split('\n')[0]
+            return result.stdout.strip().split("\n")[0]
 
     except Exception:
         pass
@@ -147,7 +144,7 @@ def execute_in_container(
     command: List[str],
     use_docker_exec: bool = True,
     auto_up: bool = False,
-    workspace_folder: Optional[str] = None
+    workspace_folder: Optional[str] = None,
 ) -> subprocess.CompletedProcess[str]:
     """
     コンテナ内でコマンドを実行する。
@@ -183,8 +180,5 @@ def execute_in_container(
                     return subprocess.run(cmd)
 
     # devcontainer execを使用（フォールバック）
-    cmd = [
-        "devcontainer", "exec",
-        "--workspace-folder", str(workspace)
-    ] + command
+    cmd = ["devcontainer", "exec", "--workspace-folder", str(workspace)] + command
     return subprocess.run(cmd)

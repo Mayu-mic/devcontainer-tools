@@ -11,8 +11,8 @@ from devcontainer_tools.container import execute_in_container
 class TestExecuteInContainer:
     """execute_in_container関数のテスト"""
 
-    @patch('devcontainer_tools.container.get_container_id')
-    @patch('subprocess.run')
+    @patch("devcontainer_tools.container.get_container_id")
+    @patch("subprocess.run")
     def test_docker_exec_with_workspace_folder(self, mock_run, mock_get_container_id):
         """docker execがworkspaceFolderを使用してワーキングディレクトリを設定する"""
         # Arrange
@@ -27,17 +27,17 @@ class TestExecuteInContainer:
             workspace=workspace,
             command=command,
             use_docker_exec=True,
-            workspace_folder="/workspace"  # 新しいパラメータ
+            workspace_folder="/workspace",  # 新しいパラメータ
         )
 
         # Assert
-        mock_run.assert_called_once_with([
-            "docker", "exec", "-it", "-w", "/workspace", container_id, "pwd"
-        ])
+        mock_run.assert_called_once_with(
+            ["docker", "exec", "-it", "-w", "/workspace", container_id, "pwd"]
+        )
         assert result.returncode == 0
 
-    @patch('devcontainer_tools.container.get_container_id')
-    @patch('subprocess.run')
+    @patch("devcontainer_tools.container.get_container_id")
+    @patch("subprocess.run")
     def test_docker_exec_with_default_workspace(self, mock_run, mock_get_container_id):
         """workspaceFolderが未指定の場合、デフォルトで/workspaceを使用"""
         # Arrange
@@ -48,20 +48,16 @@ class TestExecuteInContainer:
         mock_run.return_value = MagicMock(returncode=0)
 
         # Act
-        result = execute_in_container(
-            workspace=workspace,
-            command=command,
-            use_docker_exec=True
-        )
+        result = execute_in_container(workspace=workspace, command=command, use_docker_exec=True)
 
         # Assert
-        mock_run.assert_called_once_with([
-            "docker", "exec", "-it", "-w", "/workspace", container_id, "ls", "-la"
-        ])
+        mock_run.assert_called_once_with(
+            ["docker", "exec", "-it", "-w", "/workspace", container_id, "ls", "-la"]
+        )
         assert result.returncode == 0
 
-    @patch('devcontainer_tools.container.get_container_id')
-    @patch('subprocess.run')
+    @patch("devcontainer_tools.container.get_container_id")
+    @patch("subprocess.run")
     def test_docker_exec_with_custom_workspace_folder(self, mock_run, mock_get_container_id):
         """カスタムworkspaceFolderが指定された場合、それを使用"""
         # Arrange
@@ -77,16 +73,16 @@ class TestExecuteInContainer:
             workspace=workspace,
             command=command,
             use_docker_exec=True,
-            workspace_folder=custom_workspace
+            workspace_folder=custom_workspace,
         )
 
         # Assert
-        mock_run.assert_called_once_with([
-            "docker", "exec", "-it", "-w", custom_workspace, container_id, "npm", "install"
-        ])
+        mock_run.assert_called_once_with(
+            ["docker", "exec", "-it", "-w", custom_workspace, container_id, "npm", "install"]
+        )
         assert result.returncode == 0
 
-    @patch('subprocess.run')
+    @patch("subprocess.run")
     def test_devcontainer_exec_fallback_with_workspace(self, mock_run):
         """docker execが使用できない場合、devcontainer execにworkspaceFolderを渡す"""
         # Arrange
@@ -100,15 +96,13 @@ class TestExecuteInContainer:
             workspace=workspace,
             command=command,
             use_docker_exec=False,
-            workspace_folder=workspace_folder
+            workspace_folder=workspace_folder,
         )
 
         # Assert
         # devcontainer execはworkspaceFolderを直接サポートしない可能性があるため、
         # 現状の実装を保持
-        mock_run.assert_called_once_with([
-            "devcontainer", "exec",
-            "--workspace-folder", str(workspace),
-            "echo", "test"
-        ])
+        mock_run.assert_called_once_with(
+            ["devcontainer", "exec", "--workspace-folder", str(workspace), "echo", "test"]
+        )
         assert result.returncode == 0
