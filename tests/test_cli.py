@@ -70,6 +70,27 @@ class TestCliInit:
             config = json.loads(config_path.read_text())
             assert "features" in config
 
+    def test_init_creates_config_directory(self):
+        """Test that init command creates config directory if it doesn't exist."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config_dir = Path(temp_dir) / ".config"
+            config_path = config_dir / "devcontainer.common.json"
+
+            result = runner.invoke(cli, [
+                'init',
+                '--common-config', str(config_path)
+            ])
+
+            assert result.exit_code == 0
+            assert config_dir.exists()
+            assert config_path.exists()
+
+            # Verify content
+            config = json.loads(config_path.read_text())
+            assert "features" in config
+
 
 class TestCliUp:
     """Test the up command."""
@@ -168,11 +189,12 @@ class TestCliExec:
             result = runner.invoke(cli, [
                 'exec',
                 '--workspace', str(workspace),
+                '--',
                 'bash', '-c', 'echo hello'
             ])
 
             assert result.exit_code == 0
-            mock_execute.assert_called_once_with(workspace, ['bash', '-c', 'echo hello'])
+            mock_execute.assert_called_once_with(workspace, ['bash', '-c', 'echo hello'], auto_up=True)
 
     @patch('devcontainer_tools.cli.execute_in_container')
     def test_exec_command_failure(self, mock_execute):
@@ -212,10 +234,9 @@ class TestCliStatus:
                 {"Source": "/host/path", "Destination": "/container/path"}
             ]
         }
-        mock_find_config.return_value = Path("devcontainer.json")
-
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
+            mock_find_config.return_value = workspace / "devcontainer.json"
 
             result = runner.invoke(cli, [
                 'status',
