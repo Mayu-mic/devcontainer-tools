@@ -30,12 +30,15 @@ def load_json_file(file_path: Path) -> Dict[str, Any]:
     try:
         with open(file_path, encoding='utf-8') as f:
             content = f.read()
+        # 空ファイルの場合は空の辞書を返す
+        if not content.strip():
+            return {}
         # json5でコメント付きJSONをパース
         return json5.loads(content)
     except FileNotFoundError:
         console.print(f"[yellow]Warning: File not found: {file_path}[/yellow]")
         return {}
-    except (json5.JSONError, ValueError) as e:
+    except (ValueError) as e:
         console.print(f"[yellow]Warning: Invalid JSON in {file_path}: {e}[/yellow]")
         return {}
     except Exception as e:

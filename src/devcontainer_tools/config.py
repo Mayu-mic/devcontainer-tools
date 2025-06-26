@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from .utils import load_json_file, parse_mount_string
+from .utils import find_devcontainer_json, load_json_file, parse_mount_string
 
 
 def deep_merge(target: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]:
@@ -92,7 +92,7 @@ def merge_configurations(
         # forwardPorts -> appPort の自動変換
         # VS CodeのforwardPortsとdevcontainerのappPortは同じ目的
         if "forwardPorts" in project_config:
-            project_config["appPort"] = project_config["forwardPorts"]
+            project_config["appPort"] = project_config["forwardPorts"].copy()
 
         merged = project_config.copy()
     else:
@@ -161,3 +161,28 @@ def create_common_config_template() -> Dict[str, Any]:
             }
         }
     }
+
+
+def get_workspace_folder(workspace: Path) -> str:
+    """
+    devcontainer.jsonからworkspaceFolderを取得する。
+    
+    devcontainer.jsonにworkspaceFolderが定義されていない場合は、
+    デフォルト値として'/workspace'を返す。
+    
+    Args:
+        workspace: ワークスペースのパス
+    
+    Returns:
+        workspaceFolder値（デフォルト: /workspace）
+    """
+    # devcontainer.jsonを検索
+    config_path = find_devcontainer_json(workspace)
+    if not config_path:
+        return "/workspace"
+    
+    # 設定ファイルを読み込み
+    config = load_json_file(config_path)
+    
+    # workspaceFolderを取得（未定義の場合はデフォルト値）
+    return config.get("workspaceFolder", "/workspace")
