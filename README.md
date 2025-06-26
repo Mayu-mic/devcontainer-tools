@@ -17,7 +17,7 @@
 
 ```bash
 # GitHubから直接インストール
-uv tool install --from git+https://github.com/your-team/devcontainer-tools --name dev
+uv tool install --from git+https://github.com/Mayu-mic/devcontainer-tools --name dev
 
 # ローカルディレクトリからインストール
 cd devcontainer-scripts
@@ -27,7 +27,7 @@ uv tool install --from . --name dev
 ### 開発者向けインストール
 
 ```bash
-git clone https://github.com/your-team/devcontainer-tools
+git clone https://github.com/Mayu-mic/devcontainer-tools
 cd devcontainer-tools
 uv sync --dev
 uv pip install -e .[dev]
@@ -188,7 +188,7 @@ dev up --mount /host/path:/container/path
 
 ```bash
 # リポジトリをクローン
-git clone https://github.com/your-team/devcontainer-tools
+git clone https://github.com/Mayu-mic/devcontainer-tools
 cd devcontainer-tools
 
 # 開発依存関係をインストール

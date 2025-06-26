@@ -28,10 +28,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/your-team/devcontainer-tools"
-Documentation = "https://github.com/your-team/devcontainer-tools#readme"
-Repository = "https://github.com/your-team/devcontainer-tools.git"
-Issues = "https://github.com/your-team/devcontainer-tools/issues"
+Homepage = "https://github.com/Mayu-mic/devcontainer-tools"
+Documentation = "https://github.com/Mayu-mic/devcontainer-tools#readme"
+Repository = "https://github.com/Mayu-mic/devcontainer-tools.git"
+Issues = "https://github.com/Mayu-mic/devcontainer-tools/issues"
 
 [project.scripts]
 dev = "devcontainer_tools.cli:cli"
