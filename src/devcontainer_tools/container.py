@@ -11,6 +11,8 @@ from typing import Any, Optional, cast
 
 from rich.console import Console
 
+from .config import InvalidWorkspaceFolderError, get_workspace_folder, sanitize_workspace_folder
+
 console = Console()
 
 
@@ -138,7 +140,11 @@ def ensure_container_running(workspace: Path) -> bool:
 
 
 def execute_in_container(
-    workspace: Path, command: list[str], use_docker_exec: bool = True, auto_up: bool = False
+    workspace: Path,
+    command: list[str],
+    use_docker_exec: bool = True,
+    auto_up: bool = False,
+    workspace_folder: Optional[str] = None,
 ) -> subprocess.CompletedProcess[str]:
     """
     コンテナ内でコマンドを実行する。
@@ -148,15 +154,28 @@ def execute_in_container(
         command: 実行するコマンド
         use_docker_exec: docker execを使用するかどうか
         auto_up: コンテナが起動していない場合に自動起動するかどうか
+        workspace_folder: ワーキングディレクトリ（Noneの場合は自動取得）
 
     Returns:
         コマンドの実行結果
     """
+    # workspace_folderが指定されていない場合は自動取得
+    if workspace_folder is None:
+        workspace_folder = get_workspace_folder(workspace)
+    else:
+        # 明示的に指定されたworkspace_folderもサニタイズ
+        try:
+            workspace_folder = sanitize_workspace_folder(workspace_folder)
+        except InvalidWorkspaceFolderError:
+            # 無効なパスの場合はエラーを再発生
+            raise
+
     if use_docker_exec:
         container_id = get_container_id(workspace)
         if container_id:
             # docker execを直接使用（高速）
-            cmd = ["docker", "exec", "-it", container_id] + command
+            # -wオプションでワーキングディレクトリを指定
+            cmd = ["docker", "exec", "-it", "-w", workspace_folder, container_id] + command
             return subprocess.run(cmd, text=True)
         elif auto_up:
             # 自動起動を試行
@@ -164,7 +183,7 @@ def execute_in_container(
                 # 再度コンテナIDを取得
                 container_id = get_container_id(workspace)
                 if container_id:
-                    cmd = ["docker", "exec", "-it", container_id] + command
+                    cmd = ["docker", "exec", "-it", "-w", workspace_folder, container_id] + command
                     return subprocess.run(cmd, text=True)
 
     # devcontainer execを使用（フォールバック）

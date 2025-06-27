@@ -30,6 +30,9 @@ def load_json_file(file_path: Path) -> dict[str, Any]:
     try:
         with open(file_path, encoding="utf-8") as f:
             content = f.read()
+        # 空ファイルの場合は空の辞書を返す
+        if not content.strip():
+            return {}
         # json5でコメント付きJSONをパース
         return cast(dict[str, Any], json5.loads(content))
     except FileNotFoundError:

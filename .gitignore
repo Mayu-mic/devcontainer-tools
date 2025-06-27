@@ -166,3 +166,6 @@ Thumbs.db
 
 # Log files
 *.log
+
+# Claude local settings
+.claude/settings.local.json

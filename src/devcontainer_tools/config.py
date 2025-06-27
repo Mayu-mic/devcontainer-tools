@@ -8,7 +8,18 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
-from .utils import load_json_file, parse_mount_string
+from .utils import find_devcontainer_json, load_json_file, parse_mount_string
+
+
+class InvalidWorkspaceFolderError(ValueError):
+    """
+    workspaceFolderが無効な場合に発生する例外。
+
+    セキュリティリスクのあるパスや無効なパス形式が
+    指定された場合にこの例外が発生する。
+    """
+
+    pass
 
 
 def deep_merge(target: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
@@ -71,6 +82,14 @@ def merge_configurations(
     プロジェクト設定をベースとし、共通設定で不足部分のみを補完する。
     プロジェクト設定が存在する項目は共通設定で上書きされない。
 
+    ポート設定の処理:
+    - forwardPorts: VS Code用設定（読み取り専用として保持）
+    - appPort: devcontainer CLI用設定（forwardPorts + 追加ポート）
+
+    Note: devcontainer CLIはforwardPortsを認識しないため、
+          appPortに変換して追加ポートと組み合わせる。
+          forwardPortsは元の値のまま保持され、VS Code連携用に残される。
+
     特殊な処理:
     - forwardPortsをappPortに自動変換
     - マウント、環境変数、ポートの追加
@@ -90,9 +109,10 @@ def merge_configurations(
         project_config = load_json_file(project_config_path)
 
         # forwardPorts -> appPort の自動変換
-        # VS CodeのforwardPortsとdevcontainerのappPortは同じ目的
+        # devcontainer CLIはforwardPortsを認識しないため、appPortに変換
+        # forwardPortsは読み取り専用として保持し、VS Code連携用に残す
         if "forwardPorts" in project_config:
-            project_config["appPort"] = project_config["forwardPorts"]
+            project_config["appPort"] = project_config["forwardPorts"].copy()
 
         merged = project_config.copy()
     else:
@@ -161,3 +181,73 @@ def create_common_config_template() -> dict[str, Any]:
             }
         },
     }
+
+
+def get_workspace_folder(workspace: Path) -> str:
+    """
+    devcontainer.jsonからworkspaceFolderを取得する。
+
+    devcontainer.jsonにworkspaceFolderが定義されていない場合は、
+    デフォルト値として'/workspace'を返す。
+
+    Args:
+        workspace: ワークスペースのパス
+
+    Returns:
+        workspaceFolder値（デフォルト: /workspace）
+
+    Raises:
+        InvalidWorkspaceFolderError: 無効なworkspaceFolderが指定された場合
+    """
+    # ワークスペースパスの検証
+    if not workspace.exists():
+        return "/workspace"
+
+    # devcontainer.jsonを検索
+    config_path = find_devcontainer_json(workspace)
+    if not config_path:
+        return "/workspace"
+
+    # 設定ファイルを読み込み
+    config = load_json_file(config_path)
+
+    # workspaceFolderを取得（未定義の場合はデフォルト値）
+    workspace_folder = config.get("workspaceFolder", "/workspace")
+
+    # パス検証とサニタイゼーション
+    return sanitize_workspace_folder(workspace_folder)
+
+
+def sanitize_workspace_folder(workspace_folder: str) -> str:
+    """
+    workspaceFolderのパスをサニタイズする。
+
+    Args:
+        workspace_folder: サニタイズするパス
+
+    Returns:
+        サニタイズされたパス
+
+    Raises:
+        InvalidWorkspaceFolderError: 無効なパスの場合
+    """
+    # 空文字列や空白のみの場合は無効
+    if not workspace_folder or not workspace_folder.strip():
+        raise InvalidWorkspaceFolderError("workspaceFolderが空です")
+
+    # 制御文字チェック
+    if any(ord(c) < 32 for c in workspace_folder):
+        raise InvalidWorkspaceFolderError("workspaceFolderに制御文字が含まれています")
+
+    try:
+        # Path.resolve()でセキュアに正規化
+        path_obj = Path(workspace_folder)
+        sanitized_path = str(path_obj.resolve())
+
+        # コンテナ内パスとして適切な形式に調整
+        if not sanitized_path.startswith("/"):
+            sanitized_path = "/" + sanitized_path.lstrip("./")
+
+        return sanitized_path
+    except (ValueError, OSError) as e:
+        raise InvalidWorkspaceFolderError(f"無効なworkspaceFolder: {workspace_folder}") from e
