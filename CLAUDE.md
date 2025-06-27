@@ -89,6 +89,40 @@ uv tool uninstall devcontainer-tools
 uv tool install --editable .
 ```
 
+## 使用例
+
+### 基本的な使用方法
+```bash
+# 通常の起動（forwardPortsは変換されない）
+dev up
+
+# 設定確認のみ
+dev up --dry-run
+
+# forwardPortsをappPortに自動変換して起動
+dev up --auto-forward-ports
+
+# 追加オプションと組み合わせ
+dev up --auto-forward-ports --mount /host:/container --env NODE_ENV=development
+```
+
+### forwardPorts自動変換について
+
+**デフォルト動作（推奨）:**
+```bash
+dev up  # forwardPortsはそのまま保持、appPortには変換されない
+```
+
+**従来の動作（必要時のみ）:**
+```bash
+dev up --auto-forward-ports  # forwardPortsがappPortに変換される
+```
+
+この変更により：
+- VS Code拡張機能は`forwardPorts`を正常に認識
+- devcontainer CLIは`appPort`を使用（`--auto-forward-ports`指定時のみ）
+- 設定の重複や競合を回避
+
 ## アーキテクチャ
 
 ### モジュール構成
@@ -104,7 +138,7 @@ uv tool install --editable .
 
 1. `devcontainer.common.json`（チーム共通設定）を読み込み
 2. `.devcontainer/devcontainer.json`（プロジェクト設定）を読み込み
-3. `forwardPorts` → `appPort` 自動変換を実行
+3. `--auto-forward-ports`オプション指定時のみ`forwardPorts` → `appPort` 自動変換を実行
 4. コマンドライン引数（--mount, --env, --port）を追加
 5. 一時ファイルとして保存し、`devcontainer up --override-config`で使用
 
@@ -112,6 +146,7 @@ uv tool install --editable .
 
 - **up**: 設定マージ → 一時ファイル作成 → devcontainer CLIに委譲
   - `--dry-run`オプションで設定確認のみ可能
+  - `--auto-forward-ports`オプションで`forwardPorts`から`appPort`への自動変換を有効化
 - **exec**: コンテナID検出 → docker exec優先、フォールバックでdevcontainer exec
 - **status**: コンテナID取得 → docker inspectで詳細情報表示
 
