@@ -139,6 +139,46 @@ def ensure_container_running(workspace: Path) -> bool:
         return False
 
 
+def stop_and_remove_container(container_id: str, remove_volumes: bool = False) -> bool:
+    """
+    コンテナを停止し、削除する。
+
+    Args:
+        container_id: 停止・削除するコンテナのID
+        remove_volumes: 関連するボリュームも削除するかどうか
+
+    Returns:
+        成功した場合True、失敗した場合False
+    """
+    try:
+        # コンテナを停止
+        console.print(f"[yellow]コンテナを停止しています... (ID: {container_id[:12]})[/yellow]")
+        result = run_command(["docker", "stop", container_id], check=False)
+
+        if result.returncode != 0:
+            console.print(f"[red]コンテナの停止に失敗しました: {result.stderr}[/red]")
+            return False
+
+        # コンテナを削除
+        console.print("[yellow]コンテナを削除しています...[/yellow]")
+        cmd = ["docker", "rm", container_id]
+        if remove_volumes:
+            cmd.append("-v")  # ボリュームも削除
+
+        result = run_command(cmd, check=False)
+
+        if result.returncode != 0:
+            console.print(f"[red]コンテナの削除に失敗しました: {result.stderr}[/red]")
+            return False
+
+        console.print("[green]✓ コンテナの停止・削除が完了しました[/green]")
+        return True
+
+    except Exception as e:
+        console.print(f"[red]コンテナの停止・削除中にエラーが発生しました: {e}[/red]")
+        return False
+
+
 def execute_in_container(
     workspace: Path,
     command: list[str],

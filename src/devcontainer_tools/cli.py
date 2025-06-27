@@ -19,7 +19,12 @@ from rich.table import Table
 
 from . import __version__
 from .config import create_common_config_template, merge_configurations
-from .container import execute_in_container, get_container_id, get_container_info
+from .container import (
+    execute_in_container,
+    get_container_id,
+    get_container_info,
+    stop_and_remove_container,
+)
 from .utils import find_devcontainer_json, save_json_file
 
 # Richコンソールのインスタンスを作成（カラフルな出力用）
@@ -278,6 +283,48 @@ def status(workspace: Path) -> None:
         table.add_row("Config", "Not found")
 
     console.print(table)
+
+
+@cli.command()
+@click.option(
+    "--workspace",
+    type=click.Path(exists=True, path_type=Path),
+    default=Path.cwd(),
+    help="ワークスペースフォルダ",
+)
+@click.option("--volumes", is_flag=True, help="関連するボリュームも削除する")
+@click.option("--force", is_flag=True, help="確認なしで削除する")
+def down(workspace: Path, volumes: bool, force: bool) -> None:
+    """
+    開発コンテナを停止・削除する。
+
+    実行中のdevcontainerを停止し、削除します。
+    --volumesオプションでボリュームも削除可能です。
+    """
+    console.print("[bold red]Stopping devcontainer...[/bold red]")
+
+    # コンテナが実行中かチェック
+    container_id = get_container_id(workspace)
+
+    if not container_id:
+        console.print("[yellow]実行中のコンテナが見つかりません。[/yellow]")
+        return
+
+    # 確認プロンプト（--forceオプションがない場合）
+    if not force:
+        volumes_msg = "（ボリュームも含む）" if volumes else ""
+        if not click.confirm(
+            f"コンテナを停止・削除{volumes_msg}しますか？ (ID: {container_id[:12]})"
+        ):
+            console.print("[yellow]キャンセルしました。[/yellow]")
+            return
+
+    # コンテナを停止・削除
+    success = stop_and_remove_container(container_id, remove_volumes=volumes)
+
+    if not success:
+        console.print("[bold red]✗ コンテナの停止・削除に失敗しました[/bold red]")
+        sys.exit(1)
 
 
 @cli.command()
