@@ -387,7 +387,7 @@ class TestCliDown:
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
 
-            result = runner.invoke(cli, ["down", "--workspace", str(workspace), "--force"])
+            result = runner.invoke(cli, ["down", "--workspace", str(workspace)])
 
             assert result.exit_code == 0
             # Verify the right docker commands were called
@@ -418,9 +418,7 @@ class TestCliDown:
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
 
-            result = runner.invoke(
-                cli, ["down", "--workspace", str(workspace), "--volumes", "--force"]
-            )
+            result = runner.invoke(cli, ["down", "--workspace", str(workspace), "--volumes"])
 
             assert result.exit_code == 0
             # Verify the right docker commands were called including -v flag for volumes
@@ -452,62 +450,6 @@ class TestCliDown:
             assert "実行中のコンテナが見つかりません" in result.output
 
     @patch("devcontainer_tools.container.run_command")
-    def test_down_with_confirmation(self, mock_run_command):
-        """Test down command with user confirmation."""
-        runner = CliRunner()
-
-        # Mock container exists
-        from types import SimpleNamespace
-
-        def mock_run_command_side_effect(cmd, **kwargs):
-            if cmd[0] == "docker" and cmd[1] == "ps":
-                return SimpleNamespace(returncode=0, stdout="mock_container_id\n", stderr="")
-            return SimpleNamespace(returncode=0, stdout="", stderr="")
-
-        mock_run_command.side_effect = mock_run_command_side_effect
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            workspace = Path(temp_dir)
-
-            # Test with yes to confirmation
-            result = runner.invoke(cli, ["down", "--workspace", str(workspace)], input="y")
-
-            assert result.exit_code == 0
-            # Verify that docker stop and rm commands were called after confirmation
-            assert any(
-                "docker" in str(call) and "stop" in str(call)
-                for call in mock_run_command.call_args_list
-            )
-            assert any(
-                "docker" in str(call) and "rm" in str(call)
-                for call in mock_run_command.call_args_list
-            )
-
-    @patch("devcontainer_tools.container.run_command")
-    def test_down_with_no_confirmation(self, mock_run_command):
-        """Test down command when user says no to confirmation."""
-        runner = CliRunner()
-
-        # Mock container exists
-        from types import SimpleNamespace
-
-        def mock_run_command_side_effect(cmd, **kwargs):
-            if cmd[0] == "docker" and cmd[1] == "ps":
-                return SimpleNamespace(returncode=0, stdout="mock_container_id\n", stderr="")
-            return SimpleNamespace(returncode=0, stdout="", stderr="")
-
-        mock_run_command.side_effect = mock_run_command_side_effect
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            workspace = Path(temp_dir)
-
-            # Test with no to confirmation
-            result = runner.invoke(cli, ["down", "--workspace", str(workspace)], input="n")
-
-            assert result.exit_code == 0
-            assert "キャンセルしました" in result.output
-
-    @patch("devcontainer_tools.container.run_command")
     @patch("sys.exit")
     def test_down_failure(self, mock_exit, mock_run_command):
         """Test down command when stop/remove fails."""
@@ -528,7 +470,7 @@ class TestCliDown:
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
 
-            result = runner.invoke(cli, ["down", "--workspace", str(workspace), "--force"])
+            result = runner.invoke(cli, ["down", "--workspace", str(workspace)])
 
             assert result.exit_code == 0  # sys.exit is mocked
             # Check that sys.exit(1) was called (may be called multiple times by Click)

@@ -293,8 +293,7 @@ def status(workspace: Path) -> None:
     help="ワークスペースフォルダ",
 )
 @click.option("--volumes", is_flag=True, help="関連するボリュームも削除する")
-@click.option("--force", is_flag=True, help="確認なしで削除する")
-def down(workspace: Path, volumes: bool, force: bool) -> None:
+def down(workspace: Path, volumes: bool) -> None:
     """
     開発コンテナを停止・削除する。
 
@@ -309,15 +308,6 @@ def down(workspace: Path, volumes: bool, force: bool) -> None:
     if not container_id:
         console.print("[yellow]実行中のコンテナが見つかりません。[/yellow]")
         return
-
-    # 確認プロンプト（--forceオプションがない場合）
-    if not force:
-        volumes_msg = "（ボリュームも含む）" if volumes else ""
-        if not click.confirm(
-            f"コンテナを停止・削除{volumes_msg}しますか？ (ID: {container_id[:12]})"
-        ):
-            console.print("[yellow]キャンセルしました。[/yellow]")
-            return
 
     # コンテナを停止・削除
     success = stop_and_remove_container(container_id, remove_volumes=volumes)
