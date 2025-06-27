@@ -84,19 +84,19 @@ class TestCliUp:
     """Test the up command."""
 
     @patch("subprocess.run")
-    @patch("devcontainer_tools.utils.find_devcontainer_json")
-    def test_up_basic(self, mock_find_config, mock_subprocess):
+    def test_up_basic(self, mock_subprocess):
         """Test basic up command."""
         runner = CliRunner()
-
-        # Mock finding no project config
-        mock_find_config.return_value = None
 
         # Mock successful subprocess run
         mock_subprocess.return_value = MagicMock(returncode=0)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
+            # Create devcontainer.json
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test"}')
 
             result = runner.invoke(cli, ["up", "--workspace", str(workspace)])
 
@@ -107,16 +107,18 @@ class TestCliUp:
             assert args[0:2] == ["devcontainer", "up"]
 
     @patch("subprocess.run")
-    @patch("devcontainer_tools.utils.find_devcontainer_json")
-    def test_up_with_options(self, mock_find_config, mock_subprocess):
+    def test_up_with_options(self, mock_subprocess):
         """Test up command with various options."""
         runner = CliRunner()
 
-        mock_find_config.return_value = None
         mock_subprocess.return_value = MagicMock(returncode=0)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
+            # Create devcontainer.json
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test"}')
 
             result = runner.invoke(
                 cli,
@@ -155,10 +157,56 @@ class TestCliUp:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
+            # Create devcontainer.json
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test"}')
 
             result = runner.invoke(cli, ["up", "--workspace", str(workspace)])
 
             assert result.exit_code == 1
+
+    def test_up_no_devcontainer_json(self):
+        """Test up command fails when no devcontainer.json exists."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            result = runner.invoke(cli, ["up", "--workspace", str(workspace)])
+
+            assert result.exit_code == 1
+            assert "devcontainer.json が見つかりません" in result.output
+
+    @patch("subprocess.run")
+    def test_up_with_devcontainer_json(self, mock_subprocess):
+        """Test up command succeeds when devcontainer.json exists."""
+        runner = CliRunner()
+        mock_subprocess.return_value = MagicMock(returncode=0)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create devcontainer.json
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test"}')
+
+            result = runner.invoke(cli, ["up", "--workspace", str(workspace)])
+
+            assert result.exit_code == 0
+            mock_subprocess.assert_called_once()
+
+    def test_up_dry_run_no_devcontainer_json(self):
+        """Test up command with --dry-run fails when no devcontainer.json exists."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            result = runner.invoke(cli, ["up", "--workspace", str(workspace), "--dry-run"])
+
+            assert result.exit_code == 1
+            assert "devcontainer.json が見つかりません" in result.output
 
 
 class TestCliExec:
@@ -295,16 +343,18 @@ class TestCliRebuild:
     """Test the rebuild command."""
 
     @patch("subprocess.run")
-    @patch("devcontainer_tools.utils.find_devcontainer_json")
-    def test_rebuild(self, mock_find_config, mock_subprocess):
+    def test_rebuild(self, mock_subprocess):
         """Test rebuild command."""
         runner = CliRunner()
 
-        mock_find_config.return_value = None
         mock_subprocess.return_value = MagicMock(returncode=0)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
+            # Create devcontainer.json
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test"}')
 
             result = runner.invoke(cli, ["rebuild", "--workspace", str(workspace)])
 
