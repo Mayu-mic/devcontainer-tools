@@ -366,6 +366,118 @@ class TestCliRebuild:
             assert "--build-no-cache" in args
 
 
+class TestCliDown:
+    """Test the down command."""
+
+    @patch("devcontainer_tools.container.run_command")
+    def test_down_with_running_container(self, mock_run_command):
+        """Test down command with running container."""
+        runner = CliRunner()
+
+        # Mock container exists - need multiple calls for get_container_id
+        from types import SimpleNamespace
+
+        def mock_run_command_side_effect(cmd, **kwargs):
+            if cmd[0] == "docker" and cmd[1] == "ps":
+                return SimpleNamespace(returncode=0, stdout="mock_container_id\n", stderr="")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        mock_run_command.side_effect = mock_run_command_side_effect
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            result = runner.invoke(cli, ["down", "--workspace", str(workspace)])
+
+            assert result.exit_code == 0
+            # Verify the right docker commands were called
+            assert any(
+                "docker" in str(call) and "stop" in str(call)
+                for call in mock_run_command.call_args_list
+            )
+            assert any(
+                "docker" in str(call) and "rm" in str(call)
+                for call in mock_run_command.call_args_list
+            )
+
+    @patch("devcontainer_tools.container.run_command")
+    def test_down_with_volumes_option(self, mock_run_command):
+        """Test down command with --volumes option."""
+        runner = CliRunner()
+
+        # Mock container exists
+        from types import SimpleNamespace
+
+        def mock_run_command_side_effect(cmd, **kwargs):
+            if cmd[0] == "docker" and cmd[1] == "ps":
+                return SimpleNamespace(returncode=0, stdout="mock_container_id\n", stderr="")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        mock_run_command.side_effect = mock_run_command_side_effect
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            result = runner.invoke(cli, ["down", "--workspace", str(workspace), "--volumes"])
+
+            assert result.exit_code == 0
+            # Verify the right docker commands were called including -v flag for volumes
+            assert any(
+                "docker" in str(call) and "stop" in str(call)
+                for call in mock_run_command.call_args_list
+            )
+            assert any(
+                "docker" in str(call) and "rm" in str(call) and "-v" in str(call)
+                for call in mock_run_command.call_args_list
+            )
+
+    @patch("devcontainer_tools.container.run_command")
+    def test_down_no_container(self, mock_run_command):
+        """Test down command when no container is running."""
+        runner = CliRunner()
+
+        # Mock no container found
+        from types import SimpleNamespace
+
+        mock_run_command.return_value = SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            result = runner.invoke(cli, ["down", "--workspace", str(workspace)])
+
+            assert result.exit_code == 0
+            assert "実行中のコンテナが見つかりません" in result.output
+
+    @patch("devcontainer_tools.container.run_command")
+    @patch("sys.exit")
+    def test_down_failure(self, mock_exit, mock_run_command):
+        """Test down command when stop/remove fails."""
+        runner = CliRunner()
+
+        # Mock container exists but stop/remove fails
+        from types import SimpleNamespace
+
+        def mock_run_command_side_effect(cmd, **kwargs):
+            if cmd[0] == "docker" and cmd[1] == "ps":
+                return SimpleNamespace(returncode=0, stdout="mock_container_id\n", stderr="")
+            elif cmd[0] == "docker" and cmd[1] == "stop":
+                return SimpleNamespace(returncode=1, stdout="", stderr="Container stop failed")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        mock_run_command.side_effect = mock_run_command_side_effect
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            result = runner.invoke(cli, ["down", "--workspace", str(workspace)])
+
+            assert result.exit_code == 0  # sys.exit is mocked
+            # Check that sys.exit(1) was called (may be called multiple times by Click)
+            mock_exit.assert_any_call(1)
+            assert "コンテナの停止・削除に失敗しました" in result.output
+
+
 class TestCliHelp:
     """Test CLI help and version."""
 
@@ -389,3 +501,10 @@ class TestCliHelp:
         result = runner.invoke(cli, ["up", "--help"])
         assert result.exit_code == 0
         assert "開発コンテナを起動" in result.output
+
+    def test_down_help(self):
+        """Test down command help."""
+        runner = CliRunner()
+        result = runner.invoke(cli, ["down", "--help"])
+        assert result.exit_code == 0
+        assert "開発コンテナを停止" in result.output
