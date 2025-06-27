@@ -6,22 +6,22 @@ devcontainer.jsonの設定をマージ・管理する機能を提供します。
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from .utils import load_json_file, parse_mount_string
 
 
-def deep_merge(target: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]:
+def deep_merge(target: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
     """
     2つの辞書を深くマージする。
-    
+
     ネストされた辞書は再帰的にマージされ、
     リストは結合されて重複が削除される。
-    
+
     Args:
         target: マージ先の辞書
         source: マージ元の辞書
-    
+
     Returns:
         マージされた辞書
     """
@@ -56,32 +56,32 @@ def deep_merge(target: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]
 def merge_configurations(
     common_config_path: Optional[Path],
     project_config_path: Optional[Path],
-    additional_mounts: List[str],
-    additional_env: List[Tuple[str, str]],
-    additional_ports: List[str]
-) -> Dict[str, Any]:
+    additional_mounts: list[str],
+    additional_env: list[tuple[str, str]],
+    additional_ports: list[str],
+) -> dict[str, Any]:
     """
     すべての設定をマージする。
-    
+
     マージ順序（優先度順）:
     1. コマンドラインオプション（最優先）
     2. プロジェクト設定（.devcontainer/devcontainer.json）（ベース）
     3. 共通設定（devcontainer.common.json）（補完のみ）
-    
+
     プロジェクト設定をベースとし、共通設定で不足部分のみを補完する。
     プロジェクト設定が存在する項目は共通設定で上書きされない。
-    
+
     特殊な処理:
     - forwardPortsをappPortに自動変換
     - マウント、環境変数、ポートの追加
-    
+
     Args:
         common_config_path: 共通設定ファイルのパス
         project_config_path: プロジェクト設定ファイルのパス
         additional_mounts: 追加マウントのリスト
         additional_env: 追加環境変数のリスト（タプル）
         additional_ports: 追加ポートのリスト
-    
+
     Returns:
         マージされた設定辞書
     """
@@ -137,10 +137,10 @@ def merge_configurations(
     return merged
 
 
-def create_common_config_template() -> Dict[str, Any]:
+def create_common_config_template() -> dict[str, Any]:
     """
     共通設定テンプレートを作成する。
-    
+
     Returns:
         共通設定のテンプレート辞書
     """
@@ -159,5 +159,5 @@ def create_common_config_template() -> Dict[str, Any]:
                     # ここに共通で使用する拡張機能を追加
                 ]
             }
-        }
+        },
     }

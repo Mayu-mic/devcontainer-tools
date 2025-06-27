@@ -8,6 +8,13 @@ DevContainer Toolsは、複雑なdevcontainer CLIを簡略化し、チーム開�
 
 ## 開発環境セットアップ
 
+### 初回セットアップ
+```bash
+# ワンコマンドでセットアップ
+make setup
+```
+
+### 従来のコマンド（必要に応じて）
 ```bash
 # 依存関係のインストール
 uv sync --dev
@@ -20,13 +27,37 @@ uv tool install --editable .
 
 ## 開発用コマンド
 
+### 品質チェック
+```bash
+# 全品質チェック（CI環境と同じ）
+make check
+
+# 個別チェック
+make lint           # ruff linting
+make format         # ruff formatting
+make type-check     # mypy type checking
+make test           # pytest testing
+```
+
+### Pre-commit Hooks
+```bash
+# 自動実行（git commit時）
+git commit -m "your message"
+
+# 手動実行
+make pre-commit-run
+
+# 全ファイルでチェック
+uv run pre-commit run --all-files
+```
+
 ### テスト実行
 ```bash
-# 全テスト実行
-uv run pytest
+# 基本テスト実行
+make test
 
 # カバレッジ付きテスト
-uv run pytest --cov=devcontainer_tools
+make test-cov
 
 # 特定のテストファイル
 uv run pytest tests/test_config.py
@@ -35,15 +66,15 @@ uv run pytest tests/test_config.py
 uv run pytest tests/test_config.py::TestDeepMerge::test_simple_merge
 ```
 
-### コード品質チェック
+### 旧コマンド（直接実行）
 ```bash
 # Linting
 uv run ruff check .
 uv run ruff check --fix .
 
 # フォーマット
-uv run black .
-uv run black --check .
+uv run ruff format .
+uv run ruff format --check .
 
 # 型チェック
 uv run mypy src/

@@ -6,7 +6,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional, cast
 
 import json5
 from rich.console import Console
@@ -14,28 +14,28 @@ from rich.console import Console
 console = Console()
 
 
-def load_json_file(file_path: Path) -> Dict[str, Any]:
+def load_json_file(file_path: Path) -> dict[str, Any]:
     """
     JSONまたはJSONCファイルを安全に読み込む。
-    
+
     devcontainer.jsonのようなコメント付きJSONもサポートします。
     エラーが発生した場合は警告を表示し、空の辞書を返す。
-    
+
     Args:
         file_path: 読み込むJSONファイルのパス
-    
+
     Returns:
         パースされたJSON（辞書）、エラーの場合は空の辞書
     """
     try:
-        with open(file_path, encoding='utf-8') as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
         # json5でコメント付きJSONをパース
-        return json5.loads(content)
+        return cast(dict[str, Any], json5.loads(content))
     except FileNotFoundError:
         console.print(f"[yellow]Warning: File not found: {file_path}[/yellow]")
         return {}
-    except (json5.JSONError, ValueError) as e:
+    except ValueError as e:
         console.print(f"[yellow]Warning: Invalid JSON in {file_path}: {e}[/yellow]")
         return {}
     except Exception as e:
@@ -46,20 +46,20 @@ def load_json_file(file_path: Path) -> Dict[str, Any]:
 def find_devcontainer_json(workspace: Path) -> Optional[Path]:
     """
     ワークスペース内のdevcontainer.jsonファイルを検索する。
-    
+
     以下の順序で検索:
     1. .devcontainer/devcontainer.json
     2. devcontainer.json (ルート)
-    
+
     Args:
         workspace: 検索するワークスペースのパス
-    
+
     Returns:
         見つかったdevcontainer.jsonのパス、見つからない場合はNone
     """
     candidates = [
         workspace / ".devcontainer" / "devcontainer.json",
-        workspace / "devcontainer.json"
+        workspace / "devcontainer.json",
     ]
 
     for candidate in candidates:
@@ -72,14 +72,14 @@ def find_devcontainer_json(workspace: Path) -> Optional[Path]:
 def parse_mount_string(mount_str: str) -> str:
     """
     マウント文字列を解析し、devcontainer形式に変換する。
-    
+
     サポートする形式:
     - source=path,target=path,type=bind,consistency=cached (完全形式)
     - /host/path:/container/path (簡略形式)
-    
+
     Args:
         mount_str: マウント文字列
-    
+
     Returns:
         devcontainer形式のマウント文字列
     """
@@ -88,7 +88,7 @@ def parse_mount_string(mount_str: str) -> str:
         return mount_str
 
     # source:target形式の場合は変換
-    parts = mount_str.split(':')
+    parts = mount_str.split(":")
     if len(parts) == 2:
         return f"source={parts[0]},target={parts[1]},type=bind,consistency=cached"
 
@@ -96,15 +96,15 @@ def parse_mount_string(mount_str: str) -> str:
     return mount_str
 
 
-def save_json_file(data: Dict[str, Any], file_path: Path, indent: int = 2) -> bool:
+def save_json_file(data: dict[str, Any], file_path: Path, indent: int = 2) -> bool:
     """
     辞書をJSONファイルとして保存する。
-    
+
     Args:
         data: 保存するデータ
         file_path: 保存先のファイルパス
         indent: インデントレベル
-    
+
     Returns:
         保存に成功した場合True、失敗した場合False
     """
@@ -112,7 +112,7 @@ def save_json_file(data: Dict[str, Any], file_path: Path, indent: int = 2) -> bo
         # ディレクトリが存在しない場合は作成
         file_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=indent, ensure_ascii=False)
         return True
     except Exception as e:
