@@ -28,8 +28,8 @@ npm install -g @devcontainers/cli
 uv tool install --from git+https://github.com/Mayu-mic/devcontainer-tools --name dev
 
 # ローカルディレクトリからインストール
-cd devcontainer-scripts
-uv tool install --from . --name dev
+cd devcontainer-tools
+uv tool install --editable .
 ```
 
 ### 開発者向けインストール
@@ -131,21 +131,21 @@ your-project/
 
 ```json
 {
-  \"features\": {
-    \"ghcr.io/anthropics/devcontainer-features/claude-code:latest\": {},
-    \"ghcr.io/devcontainers/features/node:1\": {
-      \"version\": \"lts\"
+  "features": {
+    "ghcr.io/anthropics/devcontainer-features/claude-code:latest": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
     }
   },
-  \"mounts\": [
-    \"source=${env:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached\",
-    \"source=${env:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached\"
+  "mounts": [
+    "source=${env:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached",
+    "source=${env:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached"
   ],
-  \"customizations\": {
-    \"vscode\": {
-      \"extensions\": [
-        \"ms-python.python\",
-        \"ms-vscode.vscode-typescript-next\"
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-vscode.vscode-typescript-next"
       ]
     }
   }
@@ -156,12 +156,12 @@ your-project/
 
 ```json
 {
-  \"name\": \"My Project\",
-  \"image\": \"mcr.microsoft.com/devcontainers/python:3.11\",
-  \"forwardPorts\": [8000, 5432],
-  \"postCreateCommand\": \"pip install -r requirements.txt\",
-  \"remoteEnv\": {
-    \"PYTHONPATH\": \"/workspace\"
+  "name": "My Project",
+  "image": "mcr.microsoft.com/devcontainers/python:3.11",
+  "forwardPorts": [8000, 5432],
+  "postCreateCommand": "pip install -r requirements.txt",
+  "remoteEnv": {
+    "PYTHONPATH": "/workspace"
   }
 }
 ```
@@ -175,13 +175,13 @@ your-project/
 ```json
 // 入力
 {
-  \"forwardPorts\": [8000, 3000]
+  "forwardPorts": [8000, 3000]
 }
 
 // 自動変換後
 {
-  \"forwardPorts\": [8000, 3000],
-  \"appPort\": [8000, 3000]
+  "forwardPorts": [8000, 3000],
+  "appPort": [8000, 3000]
 }
 ```
 
@@ -218,31 +218,34 @@ npm install -g @devcontainers/cli
 git clone https://github.com/Mayu-mic/devcontainer-tools
 cd devcontainer-tools
 
-# 開発依存関係をインストール
-uv pip install -e .[dev]
+# 依存関係をインストール
+uv sync --dev
+
+# 開発中の変更を即座に反映させるためにeditableモードでインストール
+uv tool install --editable .
 
 # テストを実行
-pytest
+uv run pytest
 
 # コードフォーマット
-ruff check --fix .
-black .
+uv run ruff check --fix .
+uv run ruff format .
 
 # 型チェック
-mypy src/
+uv run mypy src/
 ```
 
 ### テスト
 
 ```bash
-# 全テストを実行
-pytest
-
-# カバレッジ付きでテスト
-pytest --cov
+# 全テストを実行（カバレッジ付き）
+uv run pytest
 
 # 特定のテストを実行
-pytest tests/test_config.py
+uv run pytest tests/test_config.py
+
+# カバレッジなしでテスト実行
+uv run pytest --no-cov
 ```
 
 ## 📚 コマンドリファレンス
@@ -275,6 +278,10 @@ dev up [OPTIONS]
 dev exec [OPTIONS] COMMAND...
 ```
 
+**オプション:**
+- `--workspace PATH`: ワークスペースフォルダ
+- `--no-up`: コンテナが起動していない場合でも自動起動しない
+
 ### `dev status`
 
 コンテナのステータスと設定を表示します。
@@ -282,6 +289,9 @@ dev exec [OPTIONS] COMMAND...
 ```bash
 dev status [OPTIONS]
 ```
+
+**オプション:**
+- `--workspace PATH`: ワークスペースフォルダ
 
 ### `dev rebuild`
 
@@ -291,6 +301,9 @@ dev status [OPTIONS]
 dev rebuild [OPTIONS]
 ```
 
+**オプション:**
+- `--workspace PATH`: ワークスペースフォルダ
+
 ### `dev init`
 
 共通設定テンプレートを初期化します。
@@ -298,6 +311,9 @@ dev rebuild [OPTIONS]
 ```bash
 dev init [OPTIONS]
 ```
+
+**オプション:**
+- `--common-config PATH`: 作成する共通設定ファイル
 
 ## 🔧 トラブルシューティング
 
