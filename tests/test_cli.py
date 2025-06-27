@@ -208,24 +208,87 @@ class TestCliUp:
             assert result.exit_code == 1
             assert "devcontainer.json が見つかりません" in result.output
 
+    def test_up_with_auto_forward_ports(self):
+        """Test up command with --auto-forward-ports flag."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create devcontainer.json with forwardPorts
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test", "forwardPorts": [8000, 3000]}')
+
+            # 共通設定ファイルがないことを確認
+            common_config_path = Path(temp_dir) / "common.json"
+
+            result = runner.invoke(
+                cli,
+                [
+                    "up",
+                    "--workspace",
+                    str(workspace),
+                    "--dry-run",
+                    "--auto-forward-ports",
+                    "--common-config",
+                    str(common_config_path),
+                ],
+            )
+
+            assert result.exit_code == 0
+            # マージ後の設定にappPortが含まれていることを確認
+            assert '"appPort"' in result.output
+            assert "8000" in result.output
+            assert "3000" in result.output
+            assert '"forwardPorts"' in result.output
+
+    def test_up_without_auto_forward_ports(self):
+        """Test up command without --auto-forward-ports flag (default behavior)."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create devcontainer.json with forwardPorts
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test", "forwardPorts": [8000, 3000]}')
+
+            # 共通設定ファイルがないことを確認
+            common_config_path = Path(temp_dir) / "common.json"
+
+            result = runner.invoke(
+                cli,
+                [
+                    "up",
+                    "--workspace",
+                    str(workspace),
+                    "--dry-run",
+                    "--common-config",
+                    str(common_config_path),
+                ],
+            )
+
+            assert result.exit_code == 0
+            # forwardPortsは残っているが、appPortは変換されない
+            assert '"forwardPorts"' in result.output
+            assert "8000" in result.output
+            assert "3000" in result.output
+            assert '"appPort"' not in result.output
+
 
 class TestCliExec:
     """Test the exec command."""
 
     @patch("sys.exit")
-    @patch("subprocess.run")
-    @patch("devcontainer_tools.container.get_container_id")
-    def test_exec_command(self, mock_get_id, mock_subprocess, mock_exit):
+    @patch("devcontainer_tools.cli.execute_in_container")
+    def test_exec_command(self, mock_execute, mock_exit):
         """Test exec command."""
         runner = CliRunner()
 
         # Mock successful execution
         from types import SimpleNamespace
 
-        # コンテナIDが見つかるようにモック
-        mock_get_id.return_value = "mock_container_id"
-        # subprocess.runがSimpleNamespaceを返すようにモック
-        mock_subprocess.return_value = SimpleNamespace(returncode=0)
+        mock_execute.return_value = SimpleNamespace(returncode=0)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
@@ -234,35 +297,28 @@ class TestCliExec:
                 cli, ["exec", "--workspace", str(workspace), "--", "bash", "-c", "echo hello"]
             )
 
-            # デバッグ出力（必要時のみ）
-            # print(f"Result exit code: {result.exit_code}")
-            # print(f"Result output: {result.output}")
-
             # テストアサーション
             assert result.exit_code == 0
-            # docker execコマンドが実行されることを確認
-            mock_subprocess.assert_called_once()
-            args = mock_subprocess.call_args[0][0]
-            # -wオプションでワーキングディレクトリが指定されていることを確認
-            assert args[:6] == ["docker", "exec", "-it", "-w", "/workspace", "mock_container_id"]
-            assert args[6:] == ["bash", "-c", "echo hello"]
-            # sys.exit(0)が呼び出されることを確認（Clickの内部呼び出しもあるため）
+            # execute_in_containerが正しい引数で呼び出されることを確認
+            mock_execute.assert_called_once_with(
+                workspace=workspace,
+                command=["bash", "-c", "echo hello"],
+                additional_ports=None,
+                auto_up=True,
+            )
+            # sys.exit(0)が呼び出されることを確認
             mock_exit.assert_any_call(0)
 
     @patch("sys.exit")
-    @patch("subprocess.run")
-    @patch("devcontainer_tools.container.get_container_id")
-    def test_exec_command_failure(self, mock_get_id, mock_subprocess, mock_exit):
+    @patch("devcontainer_tools.cli.execute_in_container")
+    def test_exec_command_failure(self, mock_execute, mock_exit):
         """Test exec command when command fails."""
         runner = CliRunner()
 
         # Mock failed execution
         from types import SimpleNamespace
 
-        # コンテナIDが見つかるようにモック
-        mock_get_id.return_value = "mock_container_id"
-        # subprocess.runが失敗を返すようにモック
-        mock_subprocess.return_value = SimpleNamespace(returncode=127)
+        mock_execute.return_value = SimpleNamespace(returncode=127)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
@@ -272,9 +328,104 @@ class TestCliExec:
             )
 
             assert result.exit_code == 0  # sys.exit() is mocked, so CliRunner sees success
-            mock_subprocess.assert_called_once()
+            mock_execute.assert_called_once_with(
+                workspace=workspace,
+                command=["nonexistent-command"],
+                additional_ports=None,
+                auto_up=True,
+            )
             # sys.exit(127)が呼び出されることを確認
             mock_exit.assert_any_call(127)
+
+    @patch("sys.exit")
+    @patch("devcontainer_tools.cli.execute_in_container")
+    def test_exec_with_port_option(self, mock_execute, mock_exit):
+        """Test exec command with -p port option."""
+        runner = CliRunner()
+
+        # Mock successful execution
+        from types import SimpleNamespace
+
+        mock_execute.return_value = SimpleNamespace(returncode=0)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            result = runner.invoke(
+                cli,
+                [
+                    "exec",
+                    "--workspace",
+                    str(workspace),
+                    "-p",
+                    "3000:3000",
+                    "-p",
+                    "8080:80",
+                    "--",
+                    "npm",
+                    "start",
+                ],
+            )
+
+            assert result.exit_code == 0
+            mock_execute.assert_called_once_with(
+                workspace=workspace,
+                command=["npm", "start"],
+                additional_ports=["3000:3000", "8080:80"],
+                auto_up=True,
+            )
+            mock_exit.assert_any_call(0)
+
+    @patch("sys.exit")
+    @patch("devcontainer_tools.cli.execute_in_container")
+    def test_exec_without_port_option(self, mock_execute, mock_exit):
+        """Test exec command without port option uses None for additional_ports."""
+        runner = CliRunner()
+
+        # Mock successful execution
+        from types import SimpleNamespace
+
+        mock_execute.return_value = SimpleNamespace(returncode=0)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            result = runner.invoke(
+                cli, ["exec", "--workspace", str(workspace), "--", "python", "app.py"]
+            )
+
+            assert result.exit_code == 0
+            mock_execute.assert_called_once_with(
+                workspace=workspace,
+                command=["python", "app.py"],
+                additional_ports=None,
+                auto_up=True,
+            )
+            mock_exit.assert_any_call(0)
+
+    @patch("sys.exit")
+    @patch("devcontainer_tools.cli.execute_in_container")
+    def test_exec_with_no_up_option(self, mock_execute, mock_exit):
+        """Test exec command with --no-up option."""
+        runner = CliRunner()
+
+        # Mock successful execution
+        from types import SimpleNamespace
+
+        mock_execute.return_value = SimpleNamespace(returncode=0)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            result = runner.invoke(
+                cli, ["exec", "--workspace", str(workspace), "--no-up", "--", "ls", "-la"]
+            )
+
+            assert result.exit_code == 0
+            mock_execute.assert_called_once_with(
+                workspace=workspace, command=["ls", "-la"], additional_ports=None, auto_up=False
+            )
+            mock_exit.assert_any_call(0)
 
 
 class TestCliStatus:
@@ -501,6 +652,7 @@ class TestCliHelp:
         result = runner.invoke(cli, ["up", "--help"])
         assert result.exit_code == 0
         assert "開発コンテナを起動" in result.output
+        assert "--auto-forward-ports" in result.output
 
     def test_down_help(self):
         """Test down command help."""

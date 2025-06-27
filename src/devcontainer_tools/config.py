@@ -70,6 +70,7 @@ def merge_configurations(
     additional_mounts: list[str],
     additional_env: list[tuple[str, str]],
     additional_ports: list[str],
+    auto_forward_ports: bool = False,
 ) -> dict[str, Any]:
     """
     すべての設定をマージする。
@@ -84,14 +85,14 @@ def merge_configurations(
 
     ポート設定の処理:
     - forwardPorts: VS Code用設定（読み取り専用として保持）
-    - appPort: devcontainer CLI用設定（forwardPorts + 追加ポート）
+    - appPort: devcontainer CLI用設定（auto_forward_ports=Trueの場合のみforwardPorts + 追加ポート）
 
     Note: devcontainer CLIはforwardPortsを認識しないため、
-          appPortに変換して追加ポートと組み合わせる。
+          auto_forward_ports=Trueの場合にappPortに変換して追加ポートと組み合わせる。
           forwardPortsは元の値のまま保持され、VS Code連携用に残される。
 
     特殊な処理:
-    - forwardPortsをappPortに自動変換
+    - auto_forward_ports=Trueの場合のみ、forwardPortsをappPortに自動変換
     - マウント、環境変数、ポートの追加
 
     Args:
@@ -100,6 +101,7 @@ def merge_configurations(
         additional_mounts: 追加マウントのリスト
         additional_env: 追加環境変数のリスト（タプル）
         additional_ports: 追加ポートのリスト
+        auto_forward_ports: forwardPortsをappPortに自動変換するかどうか（デフォルト: False）
 
     Returns:
         マージされた設定辞書
@@ -108,10 +110,10 @@ def merge_configurations(
     if project_config_path and project_config_path.exists():
         project_config = load_json_file(project_config_path)
 
-        # forwardPorts -> appPort の自動変換
+        # forwardPorts -> appPort の自動変換（オプション指定時のみ）
         # devcontainer CLIはforwardPortsを認識しないため、appPortに変換
         # forwardPortsは読み取り専用として保持し、VS Code連携用に残す
-        if "forwardPorts" in project_config:
+        if auto_forward_ports and "forwardPorts" in project_config:
             project_config["appPort"] = project_config["forwardPorts"].copy()
 
         merged = project_config.copy()
@@ -251,3 +253,55 @@ def sanitize_workspace_folder(workspace_folder: str) -> str:
         return sanitized_path
     except (ValueError, OSError) as e:
         raise InvalidWorkspaceFolderError(f"無効なworkspaceFolder: {workspace_folder}") from e
+
+
+def merge_configurations_for_exec(workspace: Path, additional_ports: list[str]) -> dict[str, Any]:
+    """
+    exec用の設定をマージする（upコマンドの簡略版）
+
+    Args:
+        workspace: ワークスペースのパス
+        additional_ports: 追加ポートのリスト
+
+    Returns:
+        マージされた設定辞書
+    """
+    # 既存設定を読み込み
+    project_config_path = find_devcontainer_json(workspace)
+    common_config = Path.home() / ".config" / "devcontainer.common.json"
+
+    # まず基本設定をマージ（ポートなし）
+    merged = merge_configurations(
+        common_config if common_config.exists() else None,
+        project_config_path,
+        [],  # additional_mounts
+        [],  # additional_env
+        [],  # additional_ports（ここでは空）
+        False,  # auto_forward_ports
+    )
+
+    # 次に、exec用のポート処理を行う（HOST:CONTAINERをパースして整数に変換）
+    if additional_ports:
+        if "appPort" not in merged:
+            merged["appPort"] = []
+        elif not isinstance(merged["appPort"], list):
+            # appPortが単一の値の場合はリストに変換
+            merged["appPort"] = [merged["appPort"]]
+
+        # ポート文字列をパースして整数リストに変換
+        for port_string in additional_ports:
+            # "HOST:CONTAINER" 形式をパースしてコンテナポートを抽出
+            if ":" in port_string:
+                _, container_port = port_string.split(":", 1)
+            else:
+                container_port = port_string
+
+            try:
+                port_num = int(container_port)
+                if port_num not in merged["appPort"]:
+                    merged["appPort"].append(port_num)
+            except ValueError:
+                # 無効なポート番号の場合はスキップ
+                continue
+
+    return merged

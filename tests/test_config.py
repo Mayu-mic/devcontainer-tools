@@ -3,6 +3,7 @@
 import json
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from devcontainer_tools.config import (
     create_common_config_template,
@@ -80,17 +81,47 @@ class TestMergeConfigurations:
         finally:
             common_path.unlink()
 
-    def test_forward_ports_conversion(self):
-        """Test automatic forwardPorts to appPort conversion."""
+    def test_forward_ports_conversion_disabled_by_default(self):
+        """Test that forwardPorts to appPort conversion is disabled by default."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             project_config = {"forwardPorts": [8000, 3000]}
             json.dump(project_config, f)
             project_path = Path(f.name)
 
         try:
-            result = merge_configurations(None, project_path, [], [], [])
+            result = merge_configurations(None, project_path, [], [], [], auto_forward_ports=False)
+            assert result["forwardPorts"] == [8000, 3000]
+            assert "appPort" not in result
+        finally:
+            project_path.unlink()
+
+    def test_forward_ports_conversion_enabled(self):
+        """Test that forwardPorts to appPort conversion works when enabled."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            project_config = {"forwardPorts": [8000, 3000]}
+            json.dump(project_config, f)
+            project_path = Path(f.name)
+
+        try:
+            result = merge_configurations(None, project_path, [], [], [], auto_forward_ports=True)
             assert result["forwardPorts"] == [8000, 3000]
             assert result["appPort"] == [8000, 3000]
+        finally:
+            project_path.unlink()
+
+    def test_forward_ports_conversion_legacy(self):
+        """Test backward compatibility - old function signature still works."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            project_config = {"forwardPorts": [8000, 3000]}
+            json.dump(project_config, f)
+            project_path = Path(f.name)
+
+        try:
+            # 古い関数署名でもテストが通るか確認（互換性のため）
+            result = merge_configurations(None, project_path, [], [], [])
+            assert result["forwardPorts"] == [8000, 3000]
+            # デフォルトでは変換されない
+            assert "appPort" not in result
         finally:
             project_path.unlink()
 
@@ -139,12 +170,14 @@ class TestMergeConfigurations:
             project_path = Path(f.name)
 
         try:
+            # auto_forward_ports=Trueでテスト
             result = merge_configurations(
                 common_path,
                 project_path,
                 ["/additional:/mount"],
                 [("TEST_VAR", "test_value")],
                 ["9000"],
+                auto_forward_ports=True,
             )
 
             # Check that all configurations are merged
@@ -184,3 +217,98 @@ class TestCreateCommonConfigTemplate:
         # Check VSCode customizations
         assert "vscode" in template["customizations"]
         assert "extensions" in template["customizations"]["vscode"]
+
+
+class TestMergeConfigurationsForExec:
+    """Test the merge_configurations_for_exec function."""
+
+    @patch("devcontainer_tools.config.find_devcontainer_json")
+    @patch("devcontainer_tools.config.load_json_file")
+    @patch("pathlib.Path.exists")
+    def test_merge_for_exec_with_ports(self, mock_exists, mock_load_json, mock_find_config):
+        """Test merging configurations for exec with additional ports."""
+        from devcontainer_tools.config import merge_configurations_for_exec
+
+        # Mock project config
+        project_config_path = Path("/test/project/.devcontainer/devcontainer.json")
+        mock_find_config.return_value = project_config_path
+
+        # Mock that both config files exist
+        mock_exists.return_value = True
+
+        mock_load_json.side_effect = [
+            # Project config (first call)
+            {
+                "image": "node:latest",
+                "appPort": [8080],
+                "mounts": ["source=.,target=/workspace,type=bind"],
+            },
+            # Common config (second call)
+            {"features": {"node": {}}},
+        ]
+
+        workspace = Path("/test/project")
+        additional_ports = ["3000:3000", "5000:5000"]
+
+        result = merge_configurations_for_exec(workspace, additional_ports)
+
+        # Verify appPort includes both existing and additional ports
+        assert "appPort" in result
+        assert 8080 in result["appPort"]
+        assert 3000 in result["appPort"]
+        assert 5000 in result["appPort"]
+        assert len(result["appPort"]) == 3
+
+    @patch("devcontainer_tools.config.find_devcontainer_json")
+    @patch("devcontainer_tools.config.load_json_file")
+    @patch("pathlib.Path.exists")
+    def test_merge_for_exec_without_existing_ports(
+        self, mock_exists, mock_load_json, mock_find_config
+    ):
+        """Test merging configurations for exec when no existing ports."""
+        from devcontainer_tools.config import merge_configurations_for_exec
+
+        # Mock project config without appPort
+        project_config_path = Path("/test/project/.devcontainer/devcontainer.json")
+        mock_find_config.return_value = project_config_path
+
+        # Mock that both config files exist
+        mock_exists.return_value = True
+
+        mock_load_json.side_effect = [
+            # Project config
+            {"image": "python:3.9", "mounts": ["source=.,target=/workspace,type=bind"]},
+            # Common config
+            {},
+        ]
+
+        workspace = Path("/test/project")
+        additional_ports = ["8000:8000"]
+
+        result = merge_configurations_for_exec(workspace, additional_ports)
+
+        # Verify appPort is created with additional ports
+        assert "appPort" in result
+        assert result["appPort"] == [8000]
+
+    @patch("devcontainer_tools.config.find_devcontainer_json")
+    @patch("pathlib.Path.exists")
+    def test_merge_for_exec_no_config_file(self, mock_exists, mock_find_config):
+        """Test merging configurations for exec when no config file exists."""
+        from devcontainer_tools.config import merge_configurations_for_exec
+
+        # No project config found
+        mock_find_config.return_value = None
+
+        # Common config doesn't exist either
+        mock_exists.return_value = False
+
+        workspace = Path("/test/project")
+        additional_ports = ["3000:3000", "4000:4000"]
+
+        result = merge_configurations_for_exec(workspace, additional_ports)
+
+        # Verify only appPort is in the result
+        assert "appPort" in result
+        assert result["appPort"] == [3000, 4000]
+        assert len(result) == 1  # Only appPort should be present

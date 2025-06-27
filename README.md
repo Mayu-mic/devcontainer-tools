@@ -6,7 +6,7 @@
 
 - 🚀 **簡略化されたコマンド**: 複雑なdevcontainer CLIオプションを直感的なインターフェースに
 - 🔄 **自動設定マージ**: 共通設定とプロジェクト設定を自動的に統合
-- 🎯 **forwardPorts変換**: VS CodeのforwardPortsを自動的にappPortに変換
+- 🎯 **forwardPorts変換**: オプション指定でVS CodeのforwardPortsをappPortに変換
 - 👥 **チーム対応**: 共通設定を共有して一貫した開発環境を提供
 - 💻 **高速実行**: 可能な場合はdocker execを直接使用してパフォーマンス向上
 - 🎨 **リッチな出力**: カラフルで読みやすいコンソール出力
@@ -92,6 +92,9 @@ dev up --debug
 
 # 設定をマージして確認のみ（実際の起動は行わない）
 dev up --dry-run
+
+# forwardPortsをappPortに自動変換して起動
+dev up --auto-forward-ports
 ```
 
 ### コンテナ操作
@@ -168,22 +171,36 @@ your-project/
 
 ## 🔄 自動変換機能
 
-### forwardPorts → appPort
+### forwardPorts → appPort（オプション）
 
-プロジェクト設定で `forwardPorts` を指定すると、自動的に `appPort` として扱われます：
+`--auto-forward-ports` オプションを指定した場合のみ、プロジェクト設定の `forwardPorts` が `appPort` に変換されます：
+
+```bash
+# デフォルト動作（推奨）- forwardPortsはそのまま保持
+dev up
+```
 
 ```json
-// 入力
+// 結果: forwardPortsはそのまま保持
 {
   "forwardPorts": [8000, 3000]
 }
+```
 
-// 自動変換後
+```bash
+# 従来の動作 - forwardPortsをappPortに変換
+dev up --auto-forward-ports
+```
+
+```json
+// 結果: forwardPortsはそのまま残り、appPortが追加される
 {
   "forwardPorts": [8000, 3000],
   "appPort": [8000, 3000]
 }
 ```
+
+この変更により、VS Code拡張機能との互換性が向上し、設定の重複や競合を回避できます。
 
 ### マウント形式の変換
 
@@ -269,6 +286,7 @@ dev up [OPTIONS]
 - `--common-config PATH`: 共通設定ファイル（デフォルト: devcontainer.common.json）
 - `--debug`: デバッグ情報を表示
 - `--dry-run`: 設定をマージして表示のみ（実際の起動は行わない）
+- `--auto-forward-ports`: forwardPortsをappPortに自動変換する
 
 ### `dev exec`
 
