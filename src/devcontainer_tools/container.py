@@ -11,7 +11,7 @@ from typing import Any, Optional, cast
 
 from rich.console import Console
 
-from .config import get_workspace_folder
+from .config import InvalidWorkspaceFolderError, get_workspace_folder, sanitize_workspace_folder
 
 console = Console()
 
@@ -162,6 +162,13 @@ def execute_in_container(
     # workspace_folderが指定されていない場合は自動取得
     if workspace_folder is None:
         workspace_folder = get_workspace_folder(workspace)
+    else:
+        # 明示的に指定されたworkspace_folderもサニタイズ
+        try:
+            workspace_folder = sanitize_workspace_folder(workspace_folder)
+        except InvalidWorkspaceFolderError:
+            # 無効なパスの場合はエラーを再発生
+            raise
 
     if use_docker_exec:
         container_id = get_container_id(workspace)
