@@ -6,12 +6,12 @@ devcontainer.jsonの設定をマージ・管理する機能を提供します。
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 from .utils import find_devcontainer_json, load_json_file, parse_mount_string
 
 
-def deep_merge(target: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]:
+def deep_merge(target: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]:
     """
     2つの辞書を深くマージする。
 
@@ -56,10 +56,10 @@ def deep_merge(target: Dict[str, Any], source: Dict[str, Any]) -> Dict[str, Any]
 def merge_configurations(
     common_config_path: Optional[Path],
     project_config_path: Optional[Path],
-    additional_mounts: List[str],
-    additional_env: List[Tuple[str, str]],
-    additional_ports: List[str],
-) -> Dict[str, Any]:
+    additional_mounts: list[str],
+    additional_env: list[tuple[str, str]],
+    additional_ports: list[str],
+) -> dict[str, Any]:
     """
     すべての設定をマージする。
 
@@ -137,7 +137,7 @@ def merge_configurations(
     return merged
 
 
-def create_common_config_template() -> Dict[str, Any]:
+def create_common_config_template() -> dict[str, Any]:
     """
     共通設定テンプレートを作成する。
 

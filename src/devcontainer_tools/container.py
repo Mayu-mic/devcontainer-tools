@@ -7,7 +7,7 @@ Dockerコンテナの操作に関する機能を提供します。
 import json
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional, cast
 
 from rich.console import Console
 
@@ -17,7 +17,7 @@ console = Console()
 
 
 def run_command(
-    cmd: List[str], check: bool = True, capture_output: bool = True, text: bool = True
+    cmd: list[str], check: bool = True, capture_output: bool = True, text: bool = True
 ) -> subprocess.CompletedProcess[str]:
     """
     コマンドを実行し、結果を返す。
@@ -55,7 +55,7 @@ def get_container_id(workspace: Path) -> Optional[str]:
             check=False,
         )
 
-        if result.returncode == 0 and result.stdout.strip():
+        if result.returncode == 0 and result.stdout and result.stdout.strip():
             return result.stdout.strip().split("\n")[0]
 
         # 代替のラベル形式で検索（VS Code形式）
@@ -64,7 +64,7 @@ def get_container_id(workspace: Path) -> Optional[str]:
             check=False,
         )
 
-        if result.returncode == 0 and result.stdout.strip():
+        if result.returncode == 0 and result.stdout and result.stdout.strip():
             return result.stdout.strip().split("\n")[0]
 
     except Exception:
@@ -73,7 +73,7 @@ def get_container_id(workspace: Path) -> Optional[str]:
     return None
 
 
-def get_container_info(container_id: str) -> Optional[Dict[str, Any]]:
+def get_container_info(container_id: str) -> Optional[dict[str, Any]]:
     """
     コンテナの詳細情報を取得する。
 
@@ -85,10 +85,10 @@ def get_container_info(container_id: str) -> Optional[Dict[str, Any]]:
     """
     try:
         result = run_command(["docker", "inspect", container_id], check=False)
-        if result.returncode == 0:
+        if result.returncode == 0 and result.stdout:
             info_list = json.loads(result.stdout)
             if info_list:
-                return info_list[0]
+                return cast(dict[str, Any], info_list[0])
     except (json.JSONDecodeError, IndexError):
         pass
 
@@ -141,7 +141,7 @@ def ensure_container_running(workspace: Path) -> bool:
 
 def execute_in_container(
     workspace: Path,
-    command: List[str],
+    command: list[str],
     use_docker_exec: bool = True,
     auto_up: bool = False,
     workspace_folder: Optional[str] = None,
@@ -169,7 +169,7 @@ def execute_in_container(
             # docker execを直接使用（高速）
             # -wオプションでワーキングディレクトリを指定
             cmd = ["docker", "exec", "-it", "-w", workspace_folder, container_id] + command
-            return subprocess.run(cmd)
+            return subprocess.run(cmd, text=True)
         elif auto_up:
             # 自動起動を試行
             if ensure_container_running(workspace):
@@ -177,8 +177,8 @@ def execute_in_container(
                 container_id = get_container_id(workspace)
                 if container_id:
                     cmd = ["docker", "exec", "-it", "-w", workspace_folder, container_id] + command
-                    return subprocess.run(cmd)
+                    return subprocess.run(cmd, text=True)
 
     # devcontainer execを使用（フォールバック）
     cmd = ["devcontainer", "exec", "--workspace-folder", str(workspace)] + command
-    return subprocess.run(cmd)
+    return subprocess.run(cmd, text=True)

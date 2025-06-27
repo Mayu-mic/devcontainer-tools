@@ -10,7 +10,6 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import List, Tuple
 
 import click
 from rich.console import Console
@@ -29,7 +28,7 @@ console = Console()
 
 @click.group()
 @click.version_option(version=__version__)
-def cli():
+def cli() -> None:
     """
     DevContainer簡略化管理ツール
 
@@ -62,7 +61,18 @@ def cli():
 )
 @click.option("--debug", is_flag=True, help="デバッグ情報を表示")
 @click.option("--dry-run", is_flag=True, help="設定をマージして表示のみ（実際の起動は行わない）")
-def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug, dry_run):
+def up(
+    clean: bool,
+    no_cache: bool,
+    gpu: bool,
+    mount: tuple[str, ...],
+    env: tuple[str, ...],
+    port: tuple[str, ...],
+    workspace: Path,
+    common_config: Path,
+    debug: bool,
+    dry_run: bool,
+) -> None:
     """
     開発コンテナを起動または作成する。
 
@@ -77,7 +87,7 @@ def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug, 
         console.print("[yellow]No devcontainer.json found in workspace[/yellow]")
 
     # 環境変数をパース（NAME=VALUE形式）
-    env_pairs: List[Tuple[str, str]] = []
+    env_pairs: list[tuple[str, str]] = []
     for env_var in env:
         if "=" in env_var:
             key, value = env_var.split("=", 1)
@@ -173,7 +183,7 @@ def up(clean, no_cache, gpu, mount, env, port, workspace, common_config, debug, 
     help="ワークスペースフォルダ",
 )
 @click.option("--no-up", is_flag=True, help="コンテナが起動していない場合でも自動起動しない")
-def exec(command, workspace, no_up):
+def exec(command: tuple[str, ...], workspace: Path, no_up: bool) -> None:
     """
     実行中のコンテナ内でコマンドを実行する。
 
@@ -193,7 +203,7 @@ def exec(command, workspace, no_up):
     help="ワークスペースフォルダ",
 )
 @click.pass_context
-def rebuild(ctx, workspace):
+def rebuild(ctx: click.Context, workspace: Path) -> None:
     """
     コンテナを最初から再ビルドする。
 
@@ -212,7 +222,7 @@ def rebuild(ctx, workspace):
     default=Path.cwd(),
     help="ワークスペースフォルダ",
 )
-def status(workspace):
+def status(workspace: Path) -> None:
     """
     コンテナのステータスと設定を表示する。
 
@@ -271,7 +281,7 @@ def status(workspace):
     default=Path.home() / ".config" / "devcontainer.common.json",
     help="作成する共通設定ファイル",
 )
-def init(common_config):
+def init(common_config: Path) -> None:
     """
     共通設定テンプレートを初期化する。
 

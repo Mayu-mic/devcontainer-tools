@@ -83,8 +83,8 @@ class TestCliInit:
 class TestCliUp:
     """Test the up command."""
 
-    @patch("devcontainer_tools.cli.subprocess.run")
-    @patch("devcontainer_tools.cli.find_devcontainer_json")
+    @patch("subprocess.run")
+    @patch("devcontainer_tools.utils.find_devcontainer_json")
     def test_up_basic(self, mock_find_config, mock_subprocess):
         """Test basic up command."""
         runner = CliRunner()
@@ -106,8 +106,8 @@ class TestCliUp:
             args = mock_subprocess.call_args[0][0]
             assert args[0:2] == ["devcontainer", "up"]
 
-    @patch("devcontainer_tools.cli.subprocess.run")
-    @patch("devcontainer_tools.cli.find_devcontainer_json")
+    @patch("subprocess.run")
+    @patch("devcontainer_tools.utils.find_devcontainer_json")
     def test_up_with_options(self, mock_find_config, mock_subprocess):
         """Test up command with various options."""
         runner = CliRunner()
@@ -145,7 +145,7 @@ class TestCliUp:
             assert "--gpu-availability" in args
             assert "all" in args
 
-    @patch("devcontainer_tools.cli.subprocess.run")
+    @patch("subprocess.run")
     def test_up_failure(self, mock_subprocess):
         """Test up command when devcontainer fails."""
         runner = CliRunner()
@@ -164,13 +164,20 @@ class TestCliUp:
 class TestCliExec:
     """Test the exec command."""
 
-    @patch("devcontainer_tools.cli.execute_in_container")
-    def test_exec_command(self, mock_execute):
+    @patch("sys.exit")
+    @patch("subprocess.run")
+    @patch("devcontainer_tools.container.get_container_id")
+    def test_exec_command(self, mock_get_id, mock_subprocess, mock_exit):
         """Test exec command."""
         runner = CliRunner()
 
         # Mock successful execution
-        mock_execute.return_value = MagicMock(returncode=0)
+        from types import SimpleNamespace
+
+        # コンテナIDが見つかるようにモック
+        mock_get_id.return_value = "mock_container_id"
+        # subprocess.runがSimpleNamespaceを返すようにモック
+        mock_subprocess.return_value = SimpleNamespace(returncode=0)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
@@ -179,18 +186,34 @@ class TestCliExec:
                 cli, ["exec", "--workspace", str(workspace), "--", "bash", "-c", "echo hello"]
             )
 
-            assert result.exit_code == 0
-            mock_execute.assert_called_once_with(
-                workspace, ["bash", "-c", "echo hello"], auto_up=True
-            )
+            # デバッグ出力（必要時のみ）
+            # print(f"Result exit code: {result.exit_code}")
+            # print(f"Result output: {result.output}")
 
-    @patch("devcontainer_tools.cli.execute_in_container")
-    def test_exec_command_failure(self, mock_execute):
+            # テストアサーション
+            assert result.exit_code == 0
+            # docker execコマンドが実行されることを確認
+            mock_subprocess.assert_called_once()
+            args = mock_subprocess.call_args[0][0]
+            assert args[:4] == ["docker", "exec", "-it", "mock_container_id"]
+            assert args[4:] == ["bash", "-c", "echo hello"]
+            # sys.exit(0)が呼び出されることを確認（Clickの内部呼び出しもあるため）
+            mock_exit.assert_any_call(0)
+
+    @patch("sys.exit")
+    @patch("subprocess.run")
+    @patch("devcontainer_tools.container.get_container_id")
+    def test_exec_command_failure(self, mock_get_id, mock_subprocess, mock_exit):
         """Test exec command when command fails."""
         runner = CliRunner()
 
         # Mock failed execution
-        mock_execute.return_value = MagicMock(returncode=127)
+        from types import SimpleNamespace
+
+        # コンテナIDが見つかるようにモック
+        mock_get_id.return_value = "mock_container_id"
+        # subprocess.runが失敗を返すようにモック
+        mock_subprocess.return_value = SimpleNamespace(returncode=127)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
@@ -199,37 +222,57 @@ class TestCliExec:
                 cli, ["exec", "--workspace", str(workspace), "nonexistent-command"]
             )
 
-            assert result.exit_code == 127
+            assert result.exit_code == 0  # sys.exit() is mocked, so CliRunner sees success
+            mock_subprocess.assert_called_once()
+            # sys.exit(127)が呼び出されることを確認
+            mock_exit.assert_any_call(127)
 
 
 class TestCliStatus:
     """Test the status command."""
 
-    @patch("devcontainer_tools.cli.get_container_id")
-    @patch("devcontainer_tools.cli.get_container_info")
-    @patch("devcontainer_tools.cli.find_devcontainer_json")
-    def test_status_running_container(self, mock_find_config, mock_get_info, mock_get_id):
+    @patch("devcontainer_tools.container.run_command")
+    @patch("devcontainer_tools.utils.find_devcontainer_json")
+    def test_status_running_container(self, mock_find_config, mock_run_command):
         """Test status with running container."""
         runner = CliRunner()
 
-        # Mock running container
-        mock_get_id.return_value = "abc123container"
-        mock_get_info.return_value = {
-            "Config": {"Image": "test-image:latest"},
-            "Mounts": [{"Source": "/host/path", "Destination": "/container/path"}],
-        }
+        # Mock run_command to simulate container operations
+        from types import SimpleNamespace
+
+        def mock_run_command_side_effect(cmd, **kwargs):
+            if cmd[0] == "docker" and cmd[1] == "ps":
+                # get_container_id の呼び出し
+                return SimpleNamespace(returncode=0, stdout="abc123container\n", stderr="")
+            elif cmd[0] == "docker" and cmd[1] == "inspect":
+                # get_container_info の呼び出し
+                container_info = [
+                    {
+                        "Config": {"Image": "test-image:latest"},
+                        "Mounts": [{"Source": "/host/path", "Destination": "/container/path"}],
+                    }
+                ]
+                return SimpleNamespace(returncode=0, stdout=json.dumps(container_info), stderr="")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        mock_run_command.side_effect = mock_run_command_side_effect
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
-            mock_find_config.return_value = workspace / "devcontainer.json"
+            # Create a mock devcontainer.json
+            config_path = workspace / ".devcontainer" / "devcontainer.json"
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            config_path.write_text('{"name": "test"}')
+            mock_find_config.return_value = config_path
 
             result = runner.invoke(cli, ["status", "--workspace", str(workspace)])
 
             assert result.exit_code == 0
             assert "Running" in result.output
             assert "abc123container"[:12] in result.output
+            assert "test-image:latest" in result.output
 
-    @patch("devcontainer_tools.cli.get_container_id")
-    @patch("devcontainer_tools.cli.find_devcontainer_json")
+    @patch("devcontainer_tools.container.get_container_id")
+    @patch("devcontainer_tools.utils.find_devcontainer_json")
     def test_status_no_container(self, mock_find_config, mock_get_id):
         """Test status with no running container."""
         runner = CliRunner()
@@ -250,8 +293,8 @@ class TestCliStatus:
 class TestCliRebuild:
     """Test the rebuild command."""
 
-    @patch("devcontainer_tools.cli.subprocess.run")
-    @patch("devcontainer_tools.cli.find_devcontainer_json")
+    @patch("subprocess.run")
+    @patch("devcontainer_tools.utils.find_devcontainer_json")
     def test_rebuild(self, mock_find_config, mock_subprocess):
         """Test rebuild command."""
         runner = CliRunner()

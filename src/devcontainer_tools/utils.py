@@ -6,7 +6,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional, cast
 
 import json5
 from rich.console import Console
@@ -14,7 +14,7 @@ from rich.console import Console
 console = Console()
 
 
-def load_json_file(file_path: Path) -> Dict[str, Any]:
+def load_json_file(file_path: Path) -> dict[str, Any]:
     """
     JSONまたはJSONCファイルを安全に読み込む。
 
@@ -34,7 +34,7 @@ def load_json_file(file_path: Path) -> Dict[str, Any]:
         if not content.strip():
             return {}
         # json5でコメント付きJSONをパース
-        return json5.loads(content)
+        return cast(dict[str, Any], json5.loads(content))
     except FileNotFoundError:
         console.print(f"[yellow]Warning: File not found: {file_path}[/yellow]")
         return {}
@@ -99,7 +99,7 @@ def parse_mount_string(mount_str: str) -> str:
     return mount_str
 
 
-def save_json_file(data: Dict[str, Any], file_path: Path, indent: int = 2) -> bool:
+def save_json_file(data: dict[str, Any], file_path: Path, indent: int = 2) -> bool:
     """
     辞書をJSONファイルとして保存する。
 
