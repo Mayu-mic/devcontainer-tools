@@ -18,7 +18,6 @@ make setup
 ```bash
 # 依存関係のインストール
 uv sync --dev
-uv pip install -e .[dev]
 
 # パッケージのローカルインストール（CLI利用のため）
 # 開発中は --editable を使用して変更を即座に反映
