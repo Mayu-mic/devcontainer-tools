@@ -32,7 +32,7 @@ class TestExecuteInContainer:
 
         # Assert
         mock_run.assert_called_once_with(
-            ["docker", "exec", "-it", "-w", "/workspace", container_id, "pwd"]
+            ["docker", "exec", "-it", "-w", "/workspace", container_id, "pwd"], text=True
         )
         assert result.returncode == 0
 
@@ -52,7 +52,7 @@ class TestExecuteInContainer:
 
         # Assert
         mock_run.assert_called_once_with(
-            ["docker", "exec", "-it", "-w", "/workspace", container_id, "ls", "-la"]
+            ["docker", "exec", "-it", "-w", "/workspace", container_id, "ls", "-la"], text=True
         )
         assert result.returncode == 0
 
@@ -78,7 +78,8 @@ class TestExecuteInContainer:
 
         # Assert
         mock_run.assert_called_once_with(
-            ["docker", "exec", "-it", "-w", custom_workspace, container_id, "npm", "install"]
+            ["docker", "exec", "-it", "-w", custom_workspace, container_id, "npm", "install"],
+            text=True,
         )
         assert result.returncode == 0
 
@@ -103,6 +104,7 @@ class TestExecuteInContainer:
         # devcontainer execはworkspaceFolderを直接サポートしない可能性があるため、
         # 現状の実装を保持
         mock_run.assert_called_once_with(
-            ["devcontainer", "exec", "--workspace-folder", str(workspace), "echo", "test"]
+            ["devcontainer", "exec", "--workspace-folder", str(workspace), "echo", "test"],
+            text=True,
         )
         assert result.returncode == 0

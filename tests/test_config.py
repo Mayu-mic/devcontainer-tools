@@ -149,8 +149,10 @@ class TestMergeConfigurations:
 
             # Check that all configurations are merged
             assert result["name"] == "test-project"
-            assert result["forwardPorts"] == [8000, "9000"]  # Original + additional
-            assert result["appPort"] == [8000, "9000"]  # Original + additional
+            assert result["forwardPorts"] == [
+                8000
+            ]  # Original only (not modified by additional ports)
+            assert result["appPort"] == [8000, "9000"]  # Converted from forwardPorts + additional
             assert "claude-code" in result["features"]
             assert "python" in result["features"]
             assert len(result["mounts"]) == 2  # common + additional

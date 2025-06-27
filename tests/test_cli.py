@@ -195,8 +195,9 @@ class TestCliExec:
             # docker execコマンドが実行されることを確認
             mock_subprocess.assert_called_once()
             args = mock_subprocess.call_args[0][0]
-            assert args[:4] == ["docker", "exec", "-it", "mock_container_id"]
-            assert args[4:] == ["bash", "-c", "echo hello"]
+            # -wオプションでワーキングディレクトリが指定されていることを確認
+            assert args[:6] == ["docker", "exec", "-it", "-w", "/workspace", "mock_container_id"]
+            assert args[6:] == ["bash", "-c", "echo hello"]
             # sys.exit(0)が呼び出されることを確認（Clickの内部呼び出しもあるため）
             mock_exit.assert_any_call(0)
 

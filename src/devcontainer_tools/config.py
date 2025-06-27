@@ -185,4 +185,7 @@ def get_workspace_folder(workspace: Path) -> str:
     config = load_json_file(config_path)
 
     # workspaceFolderを取得（未定義の場合はデフォルト値）
-    return config.get("workspaceFolder", "/workspace")
+    workspace_folder = config.get("workspaceFolder", "/workspace")
+    if isinstance(workspace_folder, str):
+        return workspace_folder
+    return "/workspace"
