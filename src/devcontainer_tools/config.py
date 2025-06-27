@@ -74,7 +74,7 @@ def merge_configurations(
     ポート設定の処理:
     - forwardPorts: VS Code用設定（読み取り専用として保持）
     - appPort: devcontainer CLI用設定（forwardPorts + 追加ポート）
-    
+
     Note: devcontainer CLIはforwardPortsを認識しないため、
           appPortに変換して追加ポートと組み合わせる。
           forwardPortsは元の値のまま保持され、VS Code連携用に残される。
@@ -195,6 +195,4 @@ def get_workspace_folder(workspace: Path) -> str:
 
     # workspaceFolderを取得（未定義の場合はデフォルト値）
     workspace_folder = config.get("workspaceFolder", "/workspace")
-    if isinstance(workspace_folder, str):
-        return workspace_folder
-    return "/workspace"
+    return str(workspace_folder)
