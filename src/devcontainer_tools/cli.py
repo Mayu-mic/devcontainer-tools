@@ -84,7 +84,13 @@ def up(
     # プロジェクト設定を検索
     project_config = find_devcontainer_json(workspace)
     if not project_config:
-        console.print("[yellow]No devcontainer.json found in workspace[/yellow]")
+        console.print("[bold red]✗ devcontainer.json が見つかりません[/bold red]")
+        console.print(
+            "[yellow]ワークスペースには以下のいずれかが必要です:[/yellow]\n"
+            "  • .devcontainer/devcontainer.json\n"
+            "  • devcontainer.json"
+        )
+        sys.exit(1)
 
     # 環境変数をパース（NAME=VALUE形式）
     env_pairs: list[tuple[str, str]] = []
