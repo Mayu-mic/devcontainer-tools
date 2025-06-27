@@ -80,17 +80,47 @@ class TestMergeConfigurations:
         finally:
             common_path.unlink()
 
-    def test_forward_ports_conversion(self):
-        """Test automatic forwardPorts to appPort conversion."""
+    def test_forward_ports_conversion_disabled_by_default(self):
+        """Test that forwardPorts to appPort conversion is disabled by default."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             project_config = {"forwardPorts": [8000, 3000]}
             json.dump(project_config, f)
             project_path = Path(f.name)
 
         try:
-            result = merge_configurations(None, project_path, [], [], [])
+            result = merge_configurations(None, project_path, [], [], [], auto_forward_ports=False)
+            assert result["forwardPorts"] == [8000, 3000]
+            assert "appPort" not in result
+        finally:
+            project_path.unlink()
+
+    def test_forward_ports_conversion_enabled(self):
+        """Test that forwardPorts to appPort conversion works when enabled."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            project_config = {"forwardPorts": [8000, 3000]}
+            json.dump(project_config, f)
+            project_path = Path(f.name)
+
+        try:
+            result = merge_configurations(None, project_path, [], [], [], auto_forward_ports=True)
             assert result["forwardPorts"] == [8000, 3000]
             assert result["appPort"] == [8000, 3000]
+        finally:
+            project_path.unlink()
+
+    def test_forward_ports_conversion_legacy(self):
+        """Test backward compatibility - old function signature still works."""
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            project_config = {"forwardPorts": [8000, 3000]}
+            json.dump(project_config, f)
+            project_path = Path(f.name)
+
+        try:
+            # 古い関数署名でもテストが通るか確認（互換性のため）
+            result = merge_configurations(None, project_path, [], [], [])
+            assert result["forwardPorts"] == [8000, 3000]
+            # デフォルトでは変換されない
+            assert "appPort" not in result
         finally:
             project_path.unlink()
 
@@ -139,12 +169,14 @@ class TestMergeConfigurations:
             project_path = Path(f.name)
 
         try:
+            # auto_forward_ports=Trueでテスト
             result = merge_configurations(
                 common_path,
                 project_path,
                 ["/additional:/mount"],
                 [("TEST_VAR", "test_value")],
                 ["9000"],
+                auto_forward_ports=True,
             )
 
             # Check that all configurations are merged

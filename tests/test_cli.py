@@ -208,6 +208,73 @@ class TestCliUp:
             assert result.exit_code == 1
             assert "devcontainer.json が見つかりません" in result.output
 
+    def test_up_with_auto_forward_ports(self):
+        """Test up command with --auto-forward-ports flag."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create devcontainer.json with forwardPorts
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test", "forwardPorts": [8000, 3000]}')
+
+            # 共通設定ファイルがないことを確認
+            common_config_path = Path(temp_dir) / "common.json"
+
+            result = runner.invoke(
+                cli,
+                [
+                    "up",
+                    "--workspace",
+                    str(workspace),
+                    "--dry-run",
+                    "--auto-forward-ports",
+                    "--common-config",
+                    str(common_config_path),
+                ],
+            )
+
+            assert result.exit_code == 0
+            # マージ後の設定にappPortが含まれていることを確認
+            assert '"appPort"' in result.output
+            assert "8000" in result.output
+            assert "3000" in result.output
+            assert '"forwardPorts"' in result.output
+
+    def test_up_without_auto_forward_ports(self):
+        """Test up command without --auto-forward-ports flag (default behavior)."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create devcontainer.json with forwardPorts
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test", "forwardPorts": [8000, 3000]}')
+
+            # 共通設定ファイルがないことを確認
+            common_config_path = Path(temp_dir) / "common.json"
+
+            result = runner.invoke(
+                cli,
+                [
+                    "up",
+                    "--workspace",
+                    str(workspace),
+                    "--dry-run",
+                    "--common-config",
+                    str(common_config_path),
+                ],
+            )
+
+            assert result.exit_code == 0
+            # forwardPortsは残っているが、appPortは変換されない
+            assert '"forwardPorts"' in result.output
+            assert "8000" in result.output
+            assert "3000" in result.output
+            assert '"appPort"' not in result.output
+
 
 class TestCliExec:
     """Test the exec command."""
@@ -501,6 +568,7 @@ class TestCliHelp:
         result = runner.invoke(cli, ["up", "--help"])
         assert result.exit_code == 0
         assert "開発コンテナを起動" in result.output
+        assert "--auto-forward-ports" in result.output
 
     def test_down_help(self):
         """Test down command help."""

@@ -66,6 +66,7 @@ def cli() -> None:
 )
 @click.option("--debug", is_flag=True, help="デバッグ情報を表示")
 @click.option("--dry-run", is_flag=True, help="設定をマージして表示のみ（実際の起動は行わない）")
+@click.option("--auto-forward-ports", is_flag=True, help="forwardPortsをappPortに自動変換する")
 def up(
     clean: bool,
     no_cache: bool,
@@ -77,11 +78,13 @@ def up(
     common_config: Path,
     debug: bool,
     dry_run: bool,
+    auto_forward_ports: bool,
 ) -> None:
     """
     開発コンテナを起動または作成する。
 
-    共通設定とプロジェクト設定を自動的にマージし、
+    共通設定とプロジェクト設定を自動的にマージします。
+    --auto-forward-portsオプションを指定すると、
     forwardPortsからappPortへの変換も行います。
     """
     console.print("[bold green]Starting devcontainer...[/bold green]")
@@ -106,7 +109,7 @@ def up(
 
     # すべての設定をマージ
     merged_config = merge_configurations(
-        common_config, project_config, list(mount), env_pairs, list(port)
+        common_config, project_config, list(mount), env_pairs, list(port), auto_forward_ports
     )
 
     # dry-runモードの場合は設定表示のみ
