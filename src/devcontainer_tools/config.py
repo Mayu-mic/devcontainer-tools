@@ -71,6 +71,14 @@ def merge_configurations(
     プロジェクト設定をベースとし、共通設定で不足部分のみを補完する。
     プロジェクト設定が存在する項目は共通設定で上書きされない。
 
+    ポート設定の処理:
+    - forwardPorts: VS Code用設定（読み取り専用として保持）
+    - appPort: devcontainer CLI用設定（forwardPorts + 追加ポート）
+    
+    Note: devcontainer CLIはforwardPortsを認識しないため、
+          appPortに変換して追加ポートと組み合わせる。
+          forwardPortsは元の値のまま保持され、VS Code連携用に残される。
+
     特殊な処理:
     - forwardPortsをappPortに自動変換
     - マウント、環境変数、ポートの追加
@@ -90,7 +98,8 @@ def merge_configurations(
         project_config = load_json_file(project_config_path)
 
         # forwardPorts -> appPort の自動変換
-        # VS CodeのforwardPortsとdevcontainerのappPortは同じ目的
+        # devcontainer CLIはforwardPortsを認識しないため、appPortに変換
+        # forwardPortsは読み取り専用として保持し、VS Code連携用に残す
         if "forwardPorts" in project_config:
             project_config["appPort"] = project_config["forwardPorts"].copy()
 
