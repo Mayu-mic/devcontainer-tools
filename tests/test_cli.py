@@ -317,24 +317,154 @@ class TestCliExec:
             # sys.exit(0)が呼び出されることを確認
             mock_exit.assert_any_call(0)
 
-    # TODO: 他のexecテストも同様にsubprocess.runをモックする必要がある
-    # @patch("sys.exit")
-    # @patch("devcontainer_tools.container.execute_in_container")
-    def _test_exec_command_failure_disabled(self):
-        """Disabled test - needs subprocess.run mocking."""
-        pass
+    @patch("sys.exit")
+    @patch("subprocess.run")
+    def test_exec_command_failure(self, mock_subprocess, mock_exit):
+        """Test exec command when command fails."""
+        runner = CliRunner()
 
-    def _test_exec_with_port_option_disabled(self):
-        """Disabled test - needs subprocess.run mocking."""
-        pass
+        # Mock failed execution
+        mock_subprocess.return_value = MagicMock(returncode=127)
 
-    def _test_exec_without_port_option_disabled(self):
-        """Disabled test - needs subprocess.run mocking."""
-        pass
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create devcontainer.json
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test"}')
 
-    def _test_exec_with_no_up_option_disabled(self):
-        """Disabled test - needs subprocess.run mocking."""
-        pass
+            result = runner.invoke(
+                cli, ["exec", "--workspace", str(workspace), "nonexistent-command"]
+            )
+
+            # テストアサーション
+            assert result.exit_code == 0  # sys.exit() is mocked, so CliRunner sees success
+            # devcontainer execが正しい引数で呼び出されることを確認
+            mock_subprocess.assert_called_with(
+                [
+                    "devcontainer",
+                    "exec",
+                    "--workspace-folder",
+                    str(workspace),
+                    "nonexistent-command",
+                ],
+                text=True,
+            )
+            # sys.exit(127)が呼び出されることを確認
+            mock_exit.assert_any_call(127)
+
+    @patch("sys.exit")
+    @patch("subprocess.run")
+    def test_exec_with_port_option(self, mock_subprocess, mock_exit):
+        """Test exec command with -p port option."""
+        runner = CliRunner()
+
+        # Mock successful execution
+        mock_subprocess.return_value = MagicMock(returncode=0)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create devcontainer.json
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test"}')
+
+            result = runner.invoke(
+                cli,
+                [
+                    "exec",
+                    "--workspace",
+                    str(workspace),
+                    "-p",
+                    "3000:3000",
+                    "-p",
+                    "8080:80",
+                    "--",
+                    "npm",
+                    "start",
+                ],
+            )
+
+            # テストアサーション
+            assert result.exit_code == 0
+            # subprocess.runが2回呼び出されることを確認（docker ps + devcontainer exec）
+            assert mock_subprocess.call_count == 2
+
+            # 2回目の呼び出し（devcontainer exec）をチェック
+            second_call_args = mock_subprocess.call_args_list[1][0][
+                0
+            ]  # 2回目の位置引数（コマンドリスト）
+            assert second_call_args[0] == "devcontainer"
+            assert second_call_args[1] == "exec"
+            assert second_call_args[2] == "--workspace-folder"
+            assert second_call_args[3] == str(workspace)
+            assert second_call_args[4] == "--override-config"
+            # second_call_args[5] は一時ファイルのパス（動的なので詳細チェックしない）
+            assert second_call_args[6] == "npm"
+            assert second_call_args[7] == "start"
+
+            # sys.exit(0)が呼び出されることを確認
+            mock_exit.assert_any_call(0)
+
+    @patch("sys.exit")
+    @patch("subprocess.run")
+    def test_exec_without_port_option(self, mock_subprocess, mock_exit):
+        """Test exec command without -p port option."""
+        runner = CliRunner()
+
+        # Mock successful execution
+        mock_subprocess.return_value = MagicMock(returncode=0)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create devcontainer.json
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test"}')
+
+            result = runner.invoke(
+                cli, ["exec", "--workspace", str(workspace), "--", "python", "app.py"]
+            )
+
+            # テストアサーション
+            assert result.exit_code == 0
+            # devcontainer execが正しい引数で呼び出されることを確認
+            mock_subprocess.assert_called_with(
+                ["devcontainer", "exec", "--workspace-folder", str(workspace), "python", "app.py"],
+                text=True,
+            )
+            # sys.exit(0)が呼び出されることを確認
+            mock_exit.assert_any_call(0)
+
+    @patch("sys.exit")
+    @patch("subprocess.run")
+    def test_exec_with_no_up_option(self, mock_subprocess, mock_exit):
+        """Test exec command with --no-up option."""
+        runner = CliRunner()
+
+        # Mock successful execution
+        mock_subprocess.return_value = MagicMock(returncode=0)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create devcontainer.json
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test"}')
+
+            result = runner.invoke(
+                cli, ["exec", "--workspace", str(workspace), "--no-up", "--", "ls", "-la"]
+            )
+
+            # テストアサーション
+            assert result.exit_code == 0
+            # devcontainer execが正しい引数で呼び出されることを確認
+            mock_subprocess.assert_called_with(
+                ["devcontainer", "exec", "--workspace-folder", str(workspace), "ls", "-la"],
+                text=True,
+            )
+            # sys.exit(0)が呼び出されることを確認
+            mock_exit.assert_any_call(0)
 
 
 class TestCliStatus:
