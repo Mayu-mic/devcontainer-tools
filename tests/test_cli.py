@@ -280,7 +280,7 @@ class TestCliExec:
     """Test the exec command."""
 
     @patch("sys.exit")
-    @patch("devcontainer_tools.cli.execute_in_container")
+    @patch("devcontainer_tools.container.execute_in_container")
     def test_exec_command(self, mock_execute, mock_exit):
         """Test exec command."""
         runner = CliRunner()
@@ -310,7 +310,7 @@ class TestCliExec:
             mock_exit.assert_any_call(0)
 
     @patch("sys.exit")
-    @patch("devcontainer_tools.cli.execute_in_container")
+    @patch("devcontainer_tools.container.execute_in_container")
     def test_exec_command_failure(self, mock_execute, mock_exit):
         """Test exec command when command fails."""
         runner = CliRunner()
@@ -338,7 +338,7 @@ class TestCliExec:
             mock_exit.assert_any_call(127)
 
     @patch("sys.exit")
-    @patch("devcontainer_tools.cli.execute_in_container")
+    @patch("devcontainer_tools.container.execute_in_container")
     def test_exec_with_port_option(self, mock_execute, mock_exit):
         """Test exec command with -p port option."""
         runner = CliRunner()
@@ -377,7 +377,7 @@ class TestCliExec:
             mock_exit.assert_any_call(0)
 
     @patch("sys.exit")
-    @patch("devcontainer_tools.cli.execute_in_container")
+    @patch("devcontainer_tools.container.execute_in_container")
     def test_exec_without_port_option(self, mock_execute, mock_exit):
         """Test exec command without port option uses None for additional_ports."""
         runner = CliRunner()
@@ -404,7 +404,7 @@ class TestCliExec:
             mock_exit.assert_any_call(0)
 
     @patch("sys.exit")
-    @patch("devcontainer_tools.cli.execute_in_container")
+    @patch("devcontainer_tools.container.execute_in_container")
     def test_exec_with_no_up_option(self, mock_execute, mock_exit):
         """Test exec command with --no-up option."""
         runner = CliRunner()
