@@ -5,13 +5,17 @@ Dockerコンテナの操作に関する機能を提供します。
 """
 
 import json
+import os
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any, Optional, cast
 
 from rich.console import Console
 
-from .config import InvalidWorkspaceFolderError, get_workspace_folder, sanitize_workspace_folder
+from .config import (
+    merge_configurations_for_exec,
+)
 
 console = Console()
 
@@ -182,50 +186,59 @@ def stop_and_remove_container(container_id: str, remove_volumes: bool = False) -
 def execute_in_container(
     workspace: Path,
     command: list[str],
-    use_docker_exec: bool = True,
+    additional_ports: Optional[list[str]] = None,
     auto_up: bool = False,
-    workspace_folder: Optional[str] = None,
 ) -> subprocess.CompletedProcess[str]:
     """
-    コンテナ内でコマンドを実行する。
+    コンテナ内でコマンドを実行する（devcontainer CLI使用に統一）
 
     Args:
         workspace: ワークスペースのパス
         command: 実行するコマンド
-        use_docker_exec: docker execを使用するかどうか
+        additional_ports: 追加ポートのリスト
         auto_up: コンテナが起動していない場合に自動起動するかどうか
-        workspace_folder: ワーキングディレクトリ（Noneの場合は自動取得）
 
     Returns:
         コマンドの実行結果
     """
-    # workspace_folderが指定されていない場合は自動取得
-    if workspace_folder is None:
-        workspace_folder = get_workspace_folder(workspace)
-    else:
-        # 明示的に指定されたworkspace_folderもサニタイズ
+    # auto_upがtrueの場合、コンテナが起動していなければ自動起動
+    if auto_up:
+        ensure_container_running(workspace)
+
+    # -pオプション指定時は設定ファイルをマージ
+    if additional_ports:
+        # 一時設定ファイル作成（upコマンドと同様の処理）
+        merged_config = merge_configurations_for_exec(workspace, additional_ports)
+
+        # より安全な一時ファイル管理
         try:
-            workspace_folder = sanitize_workspace_folder(workspace_folder)
-        except InvalidWorkspaceFolderError:
-            # 無効なパスの場合はエラーを再発生
-            raise
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False, dir=tempfile.gettempdir()
+            ) as f:
+                json.dump(merged_config, f, indent=2)
+                temp_config_path = f.name
 
-    if use_docker_exec:
-        container_id = get_container_id(workspace)
-        if container_id:
-            # docker execを直接使用（高速）
-            # -wオプションでワーキングディレクトリを指定
-            cmd = ["docker", "exec", "-it", "-w", workspace_folder, container_id] + command
+            # ファイルが正常に作成されたかチェック
+            if not Path(temp_config_path).exists():
+                raise OSError("一時設定ファイルの作成に失敗しました")
+
+            cmd = [
+                "devcontainer",
+                "exec",
+                "--workspace-folder",
+                str(workspace),
+                "--override-config",
+                temp_config_path,
+            ] + command
             return subprocess.run(cmd, text=True)
-        elif auto_up:
-            # 自動起動を試行
-            if ensure_container_running(workspace):
-                # 再度コンテナIDを取得
-                container_id = get_container_id(workspace)
-                if container_id:
-                    cmd = ["docker", "exec", "-it", "-w", workspace_folder, container_id] + command
-                    return subprocess.run(cmd, text=True)
-
-    # devcontainer execを使用（フォールバック）
-    cmd = ["devcontainer", "exec", "--workspace-folder", str(workspace)] + command
-    return subprocess.run(cmd, text=True)
+        finally:
+            # 安全なファイル削除
+            try:
+                if "temp_config_path" in locals() and Path(temp_config_path).exists():
+                    os.unlink(temp_config_path)
+            except OSError:
+                # ファイル削除に失敗してもエラーにしない（ログを検討）
+                pass
+    else:
+        cmd = ["devcontainer", "exec", "--workspace-folder", str(workspace)] + command
+        return subprocess.run(cmd, text=True)

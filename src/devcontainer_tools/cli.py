@@ -191,21 +191,28 @@ def up(
 @cli.command()
 @click.argument("command", nargs=-1, required=True)
 @click.option(
+    "-p", "--port", "ports", multiple=True, help="ポートフォワード (形式: HOST_PORT:CONTAINER_PORT)"
+)
+@click.option(
     "--workspace",
     type=click.Path(exists=True, path_type=Path),
     default=Path.cwd(),
     help="ワークスペースフォルダ",
 )
 @click.option("--no-up", is_flag=True, help="コンテナが起動していない場合でも自動起動しない")
-def exec(command: tuple[str, ...], workspace: Path, no_up: bool) -> None:
+def exec(command: tuple[str, ...], ports: tuple[str, ...], workspace: Path, no_up: bool) -> None:
     """
     実行中のコンテナ内でコマンドを実行する。
 
-    可能な場合はdocker execを直接使用してパフォーマンスを向上させる。
-    コンテナが見つからない場合、デフォルトで自動的にコンテナを起動する。
-    --no-upオプションを指定すると従来通りエラーで停止する。
+    -pオプションでポートフォワーディングを指定可能。
+    dockerと同様の形式（HOST_PORT:CONTAINER_PORT）で指定。
     """
-    result = execute_in_container(workspace, list(command), auto_up=not no_up)
+    result = execute_in_container(
+        workspace=workspace,
+        command=list(command),
+        additional_ports=list(ports) if ports else None,
+        auto_up=not no_up,
+    )
     sys.exit(result.returncode)
 
 

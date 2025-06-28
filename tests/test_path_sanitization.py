@@ -4,7 +4,7 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -96,58 +96,26 @@ class TestPathSanitization:
         # デフォルト値が返されることを確認
         assert result == "/workspace"
 
-    @patch("devcontainer_tools.container.get_container_id")
     @patch("subprocess.run")
-    def test_execute_in_container_with_sanitized_workspace_folder(
-        self, mock_run, mock_get_container_id
-    ):
-        """execute_in_containerで明示的なworkspace_folderがサニタイズされる"""
+    def test_execute_in_container_uses_devcontainer_exec(self, mock_run):
+        """execute_in_containerは常にdevcontainer execを使用する"""
         # Arrange
         workspace = Path("/test/workspace")
-        container_id = "abc123"
         command = ["pwd"]
-        dangerous_path = "../../../etc"
-        mock_get_container_id.return_value = container_id
+        mock_run.return_value = MagicMock(returncode=0)
 
         # Act
         execute_in_container(
             workspace=workspace,
             command=command,
-            use_docker_exec=True,
-            workspace_folder=dangerous_path,
         )
 
         # Assert
         mock_run.assert_called_once()
         called_cmd = mock_run.call_args[0][0]
-        # -wオプションの後のパスが正規化されていることを確認
-        workspace_index = called_cmd.index("-w") + 1
-        sanitized_path = called_cmd[workspace_index]
-        # 正規化されて絶対パスになっている
-        assert sanitized_path.startswith("/")
-        assert "etc" in sanitized_path
-
-    @patch("devcontainer_tools.container.get_container_id")
-    @patch("subprocess.run")
-    def test_execute_in_container_with_invalid_workspace_folder(
-        self, mock_run, mock_get_container_id
-    ):
-        """execute_in_containerで無効なworkspace_folderの場合エラーが発生する"""
-        # Arrange
-        workspace = Path("/test/workspace")
-        container_id = "abc123"
-        command = ["pwd"]
-        invalid_path = "\x00invalid"
-        mock_get_container_id.return_value = container_id
-
-        # Act & Assert
-        with pytest.raises(InvalidWorkspaceFolderError, match="制御文字が含まれています"):
-            execute_in_container(
-                workspace=workspace,
-                command=command,
-                use_docker_exec=True,
-                workspace_folder=invalid_path,
-            )
+        # devcontainer execが使用されることを確認
+        assert called_cmd[:4] == ["devcontainer", "exec", "--workspace-folder", str(workspace)]
+        assert called_cmd[4:] == ["pwd"]
 
     def test_path_normalization_edge_cases(self):
         """パス正規化のエッジケースをテスト"""
