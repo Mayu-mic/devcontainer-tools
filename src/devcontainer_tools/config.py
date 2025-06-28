@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
+from rich.console import Console
+
 from .utils import find_devcontainer_json, load_json_file, parse_mount_string
 
 
@@ -298,10 +300,22 @@ def merge_configurations_for_exec(workspace: Path, additional_ports: list[str]) 
 
             try:
                 port_num = int(container_port)
+                # ポート番号の有効範囲をチェック
+                if not (1 <= port_num <= 65535):
+                    console = Console()
+                    console.print(
+                        f"[yellow]Warning: Invalid port {port_num}, skipping (valid range: 1-65535)[/yellow]"
+                    )
+                    continue
+
                 if port_num not in merged["appPort"]:
                     merged["appPort"].append(port_num)
             except ValueError:
-                # 無効なポート番号の場合はスキップ
+                # 無効なポート番号の場合は警告を表示
+                console = Console()
+                console.print(
+                    f"[yellow]Warning: Invalid port format '{container_port}', skipping[/yellow]"
+                )
                 continue
 
     return merged

@@ -2,6 +2,7 @@
 コンテナ操作のテスト
 """
 
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -35,8 +36,9 @@ class TestExecuteInContainer:
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     @patch("os.unlink")
+    @patch("pathlib.Path.exists")
     def test_devcontainer_exec_with_ports(
-        self, mock_unlink, mock_tempfile, mock_run, mock_merge_config
+        self, mock_path_exists, mock_unlink, mock_tempfile, mock_run, mock_merge_config
     ):
         """ポート指定ありでdevcontainer execを使用し、一時設定ファイルを作成"""
         # Arrange
@@ -56,6 +58,9 @@ class TestExecuteInContainer:
         merged_config = {"appPort": [3000, 8080]}
         mock_merge_config.return_value = merged_config
 
+        # Path.exists()をTrueに設定
+        mock_path_exists.return_value = True
+
         # Act
         result = execute_in_container(
             workspace=workspace,
@@ -65,7 +70,9 @@ class TestExecuteInContainer:
 
         # Assert
         mock_merge_config.assert_called_once_with(workspace, additional_ports)
-        mock_tempfile.assert_called_once_with(mode="w", suffix=".json", delete=False)
+        mock_tempfile.assert_called_once_with(
+            mode="w", suffix=".json", delete=False, dir=tempfile.gettempdir()
+        )
         # ファイルへの書き込みを確認
         mock_run.assert_called_once_with(
             [
@@ -112,8 +119,9 @@ class TestExecuteInContainer:
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     @patch("os.unlink")
+    @patch("pathlib.Path.exists")
     def test_devcontainer_exec_with_single_port(
-        self, mock_unlink, mock_tempfile, mock_run, mock_merge_config
+        self, mock_path_exists, mock_unlink, mock_tempfile, mock_run, mock_merge_config
     ):
         """単一ポート指定でdevcontainer execを使用"""
         # Arrange
@@ -132,6 +140,9 @@ class TestExecuteInContainer:
         # マージされた設定のモック
         merged_config = {"appPort": [5000]}
         mock_merge_config.return_value = merged_config
+
+        # Path.exists()をTrueに設定
+        mock_path_exists.return_value = True
 
         # Act
         result = execute_in_container(
@@ -170,8 +181,15 @@ class TestExecuteInContainer:
     @patch("subprocess.run")
     @patch("tempfile.NamedTemporaryFile")
     @patch("os.unlink")
+    @patch("pathlib.Path.exists")
     def test_config_json_content(
-        self, mock_unlink, mock_tempfile, mock_run, mock_merge_config, mock_json_dump
+        self,
+        mock_path_exists,
+        mock_unlink,
+        mock_tempfile,
+        mock_run,
+        mock_merge_config,
+        mock_json_dump,
     ):
         """一時設定ファイルに正しいJSON内容が書き込まれることを確認"""
         # Arrange
@@ -194,6 +212,9 @@ class TestExecuteInContainer:
             "mounts": ["source=.,target=/workspace,type=bind"],
         }
         mock_merge_config.return_value = merged_config
+
+        # Path.exists()をTrueに設定
+        mock_path_exists.return_value = True
 
         # Act
         result = execute_in_container(

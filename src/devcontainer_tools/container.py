@@ -209,11 +209,19 @@ def execute_in_container(
     if additional_ports:
         # 一時設定ファイル作成（upコマンドと同様の処理）
         merged_config = merge_configurations_for_exec(workspace, additional_ports)
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-            json.dump(merged_config, f, indent=2)
-            temp_config_path = f.name
 
+        # より安全な一時ファイル管理
         try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False, dir=tempfile.gettempdir()
+            ) as f:
+                json.dump(merged_config, f, indent=2)
+                temp_config_path = f.name
+
+            # ファイルが正常に作成されたかチェック
+            if not Path(temp_config_path).exists():
+                raise OSError("一時設定ファイルの作成に失敗しました")
+
             cmd = [
                 "devcontainer",
                 "exec",
@@ -224,7 +232,13 @@ def execute_in_container(
             ] + command
             return subprocess.run(cmd, text=True)
         finally:
-            os.unlink(temp_config_path)
+            # 安全なファイル削除
+            try:
+                if "temp_config_path" in locals() and Path(temp_config_path).exists():
+                    os.unlink(temp_config_path)
+            except OSError:
+                # ファイル削除に失敗してもエラーにしない（ログを検討）
+                pass
     else:
         cmd = ["devcontainer", "exec", "--workspace-folder", str(workspace)] + command
         return subprocess.run(cmd, text=True)
