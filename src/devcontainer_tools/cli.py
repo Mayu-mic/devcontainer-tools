@@ -195,21 +195,16 @@ def up(
 @cli.command()
 @click.argument("command", nargs=-1, required=True)
 @click.option(
-    "-p", "--port", "ports", multiple=True, help="ポートフォワード (形式: HOST_PORT:CONTAINER_PORT)"
-)
-@click.option(
     "--workspace",
     type=click.Path(exists=True, path_type=Path),
     default=None,
     help="ワークスペースフォルダ（未指定時は現在のディレクトリを使用）",
 )
-def exec(command: tuple[str, ...], ports: tuple[str, ...], workspace: Path | None) -> None:
+def exec(command: tuple[str, ...], workspace: Path | None) -> None:
     """
     実行中のコンテナ内でコマンドを実行する。
 
     コンテナが起動していない場合は、先に 'dev up' を実行してください。
-    -pオプションでポートフォワーディングを指定可能。
-    dockerと同様の形式（HOST_PORT:CONTAINER_PORT）で指定。
     """
     # コンテナが起動しているかチェック
     from .container import is_container_running
@@ -223,7 +218,6 @@ def exec(command: tuple[str, ...], ports: tuple[str, ...], workspace: Path | Non
     result = execute_in_container(
         workspace=workspace,
         command=list(command),
-        additional_ports=list(ports) if ports else None,
     )
     sys.exit(result.returncode)
 

@@ -7,15 +7,11 @@ Dockerコンテナの操作に関する機能を提供します。
 from __future__ import annotations
 
 import json
-import os
 import subprocess
-import tempfile
 from pathlib import Path
 from typing import Any, cast
 
 from rich.console import Console
-
-from .config import merge_configurations_for_exec
 
 console = Console()
 
@@ -186,15 +182,13 @@ def stop_and_remove_container(container_id: str, remove_volumes: bool = False) -
 def execute_in_container(
     workspace: Path | None,
     command: list[str],
-    additional_ports: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """
-    コンテナ内でコマンドを実行する（devcontainer CLI使用に統一）
+    コンテナ内でコマンドを実行する（devcontainer CLI使用）
 
     Args:
         workspace: ワークスペースのパス（Noneの場合は現在のディレクトリを使用）
         command: 実行するコマンド
-        additional_ports: 追加ポートのリスト
 
     Returns:
         コマンドの実行結果
@@ -202,47 +196,10 @@ def execute_in_container(
     # devcontainer execでは常にデフォルトの"."を使用
     workspace_folder = "."
 
-    # -pオプション指定時は設定ファイルをマージ
-    if additional_ports:
-        # ポート指定時はworkspaceが必要（Noneの場合は現在のディレクトリを使用）
-        actual_workspace = workspace or Path.cwd()
-        # 一時設定ファイル作成（upコマンドと同様の処理）
-        merged_config = merge_configurations_for_exec(actual_workspace, additional_ports)
-
-        # より安全な一時ファイル管理
-        try:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False, dir=tempfile.gettempdir()
-            ) as f:
-                json.dump(merged_config, f, indent=2)
-                temp_config_path = f.name
-
-            # ファイルが正常に作成されたかチェック
-            if not Path(temp_config_path).exists():
-                raise OSError("一時設定ファイルの作成に失敗しました")
-
-            cmd = [
-                "devcontainer",
-                "exec",
-                "--workspace-folder",
-                workspace_folder,  # 自動検出されたworkspaceFolderを使用
-                "--override-config",
-                temp_config_path,
-            ] + command
-            return subprocess.run(cmd, text=True)
-        finally:
-            # 安全なファイル削除
-            try:
-                if "temp_config_path" in locals() and Path(temp_config_path).exists():
-                    os.unlink(temp_config_path)
-            except OSError:
-                # ファイル削除に失敗してもエラーにしない（ログを検討）
-                pass
-    else:
-        cmd = [
-            "devcontainer",
-            "exec",
-            "--workspace-folder",
-            workspace_folder,
-        ] + command  # 自動検出されたworkspaceFolderを使用
-        return subprocess.run(cmd, text=True)
+    cmd = [
+        "devcontainer",
+        "exec",
+        "--workspace-folder",
+        workspace_folder,
+    ] + command
+    return subprocess.run(cmd, text=True)
