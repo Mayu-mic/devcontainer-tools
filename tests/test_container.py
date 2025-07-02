@@ -28,7 +28,8 @@ class TestExecuteInContainer:
 
         # Assert
         mock_run.assert_called_once_with(
-            ["devcontainer", "exec", "--workspace-folder", str(workspace), "pwd"], text=True
+            ["devcontainer", "exec", "--workspace-folder", ".", "pwd"],
+            text=True,
         )
         assert result.returncode == 0
 
@@ -38,7 +39,12 @@ class TestExecuteInContainer:
     @patch("os.unlink")
     @patch("pathlib.Path.exists")
     def test_devcontainer_exec_with_ports(
-        self, mock_path_exists, mock_unlink, mock_tempfile, mock_run, mock_merge_config
+        self,
+        mock_path_exists,
+        mock_unlink,
+        mock_tempfile,
+        mock_run,
+        mock_merge_config,
     ):
         """ポート指定ありでdevcontainer execを使用し、一時設定ファイルを作成"""
         # Arrange
@@ -46,7 +52,6 @@ class TestExecuteInContainer:
         command = ["npm", "start"]
         additional_ports = ["3000:3000", "8080:80"]
         mock_run.return_value = MagicMock(returncode=0)
-
         # 一時ファイルのモック
         temp_file = MagicMock()
         temp_file.name = "/tmp/test_config.json"
@@ -79,7 +84,7 @@ class TestExecuteInContainer:
                 "devcontainer",
                 "exec",
                 "--workspace-folder",
-                str(workspace),
+                ".",
                 "--override-config",
                 temp_file.name,
                 "npm",
@@ -110,7 +115,7 @@ class TestExecuteInContainer:
         # Assert
         mock_ensure_running.assert_called_once_with(workspace)
         mock_run.assert_called_once_with(
-            ["devcontainer", "exec", "--workspace-folder", str(workspace), "echo", "test"],
+            ["devcontainer", "exec", "--workspace-folder", ".", "echo", "test"],
             text=True,
         )
         assert result.returncode == 0
@@ -162,7 +167,6 @@ class TestExecuteInContainer:
         workspace = Path("/test/workspace")
         command = ["ls", "-la"]
         mock_run.return_value = MagicMock(returncode=0)
-
         # Act
         result = execute_in_container(
             workspace=workspace,
@@ -172,7 +176,8 @@ class TestExecuteInContainer:
 
         # Assert
         mock_run.assert_called_once_with(
-            ["devcontainer", "exec", "--workspace-folder", str(workspace), "ls", "-la"], text=True
+            ["devcontainer", "exec", "--workspace-folder", ".", "ls", "-la"],
+            text=True,
         )
         assert result.returncode == 0
 
@@ -225,4 +230,63 @@ class TestExecuteInContainer:
 
         # Assert
         mock_json_dump.assert_called_once_with(merged_config, temp_file, indent=2)
+        assert result.returncode == 0
+
+    @patch("devcontainer_tools.container.merge_configurations_for_exec")
+    @patch("subprocess.run")
+    @patch("tempfile.NamedTemporaryFile")
+    @patch("os.unlink")
+    @patch("pathlib.Path.exists")
+    def test_exec_with_ports_uses_workspace_folder_from_config(
+        self,
+        mock_path_exists,
+        mock_unlink,
+        mock_tempfile,
+        mock_run,
+        mock_merge_config,
+    ):
+        """
+        ポート指定ありのexecコマンドのテスト
+        """
+        # Arrange
+        workspace = Path("/test/workspace")
+        command = ["npm", "start"]
+        additional_ports = ["3000:3000"]
+        mock_run.return_value = MagicMock(returncode=0)
+
+        # 一時ファイルのモック
+        temp_file = MagicMock()
+        temp_file.name = "/tmp/test_config.json"
+        temp_file.__enter__ = MagicMock(return_value=temp_file)
+        temp_file.__exit__ = MagicMock(return_value=None)
+        mock_tempfile.return_value = temp_file
+
+        # マージされた設定のモック
+        merged_config = {"appPort": [3000]}
+        mock_merge_config.return_value = merged_config
+
+        # Path.exists()をTrueに設定
+        mock_path_exists.return_value = True
+
+        # Act
+        result = execute_in_container(
+            workspace=workspace,
+            command=command,
+            additional_ports=additional_ports,
+        )
+
+        # Assert
+        mock_run.assert_called_once_with(
+            [
+                "devcontainer",
+                "exec",
+                "--workspace-folder",
+                ".",  # デフォルト値
+                "--override-config",
+                temp_file.name,
+                "npm",
+                "start",
+            ],
+            text=True,
+        )
         assert result.returncode == 0

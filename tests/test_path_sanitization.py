@@ -94,7 +94,7 @@ class TestPathSanitization:
         result = get_workspace_folder(nonexistent_workspace)
 
         # デフォルト値が返されることを確認
-        assert result == "/workspace"
+        assert result == "."
 
     @patch("subprocess.run")
     def test_execute_in_container_uses_devcontainer_exec(self, mock_run):
@@ -114,7 +114,7 @@ class TestPathSanitization:
         mock_run.assert_called_once()
         called_cmd = mock_run.call_args[0][0]
         # devcontainer execが使用されることを確認
-        assert called_cmd[:4] == ["devcontainer", "exec", "--workspace-folder", str(workspace)]
+        assert called_cmd[:4] == ["devcontainer", "exec", "--workspace-folder", "."]
         assert called_cmd[4:] == ["pwd"]
 
     def test_path_normalization_edge_cases(self):

@@ -307,7 +307,7 @@ class TestCliExec:
                     "devcontainer",
                     "exec",
                     "--workspace-folder",
-                    str(workspace),
+                    ".",
                     "bash",
                     "-c",
                     "echo hello",
@@ -345,13 +345,45 @@ class TestCliExec:
                     "devcontainer",
                     "exec",
                     "--workspace-folder",
-                    str(workspace),
+                    ".",
                     "nonexistent-command",
                 ],
                 text=True,
             )
             # sys.exit(127)が呼び出されることを確認
             mock_exit.assert_any_call(127)
+
+    @patch("sys.exit")
+    @patch("subprocess.run")
+    def test_exec_without_workspace_option_uses_default(self, mock_subprocess, mock_exit):
+        """
+        Test exec command without --workspace option uses default workspace folder
+
+        期待される動作:
+        - --workspaceオプションなしの場合、workspace=Noneが渡される
+        - execute_in_containerでworkspace_folder="."が使用される
+        """
+        runner = CliRunner()
+
+        # Mock successful execution
+        mock_subprocess.return_value = MagicMock(returncode=0)
+
+        result = runner.invoke(cli, ["exec", "pwd"])
+
+        # テストアサーション
+        assert result.exit_code == 0
+        # devcontainer execでデフォルトの"."が使用されることを確認
+        mock_subprocess.assert_called_with(
+            [
+                "devcontainer",
+                "exec",
+                "--workspace-folder",
+                ".",  # workspaceがNoneの場合のデフォルト値
+                "pwd",
+            ],
+            text=True,
+        )
+        mock_exit.assert_any_call(0)
 
     @patch("sys.exit")
     @patch("subprocess.run")
@@ -397,7 +429,7 @@ class TestCliExec:
             assert second_call_args[0] == "devcontainer"
             assert second_call_args[1] == "exec"
             assert second_call_args[2] == "--workspace-folder"
-            assert second_call_args[3] == str(workspace)
+            assert second_call_args[3] == "."
             assert second_call_args[4] == "--override-config"
             # second_call_args[5] は一時ファイルのパス（動的なので詳細チェックしない）
             assert second_call_args[6] == "npm"
@@ -430,7 +462,14 @@ class TestCliExec:
             assert result.exit_code == 0
             # devcontainer execが正しい引数で呼び出されることを確認
             mock_subprocess.assert_called_with(
-                ["devcontainer", "exec", "--workspace-folder", str(workspace), "python", "app.py"],
+                [
+                    "devcontainer",
+                    "exec",
+                    "--workspace-folder",
+                    ".",
+                    "python",
+                    "app.py",
+                ],
                 text=True,
             )
             # sys.exit(0)が呼び出されることを確認
@@ -460,7 +499,7 @@ class TestCliExec:
             assert result.exit_code == 0
             # devcontainer execが正しい引数で呼び出されることを確認
             mock_subprocess.assert_called_with(
-                ["devcontainer", "exec", "--workspace-folder", str(workspace), "ls", "-la"],
+                ["devcontainer", "exec", "--workspace-folder", ".", "ls", "-la"],
                 text=True,
             )
             # sys.exit(0)が呼び出されることを確認

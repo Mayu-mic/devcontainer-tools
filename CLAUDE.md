@@ -172,6 +172,26 @@ dev up --auto-forward-ports  # forwardPortsがappPortに変換される
 ### JSONC（コメント付きJSON）サポート
 `devcontainer.json`のコメント（`//`）をサポートするため、`json5`ライブラリを使用してパースを実行。
 
+## コーディングスタイル
+
+### 型アノテーション
+- **Union型**: `Optional[X]`ではなく`X | None`を使用してください
+- **Future import**: 各ファイルの先頭に`from __future__ import annotations`を追加してください
+- Python 3.9+互換性を保ちながら、モダンな型構文を使用します
+
+### 例
+```python
+from __future__ import annotations
+
+from pathlib import Path
+
+def example_function(path: Path | None) -> str | None:
+    """型アノテーションの例"""
+    if path is None:
+        return None
+    return str(path)
+```
+
 ## 日本語対応
 
 コメント、ドキュメント、CLI ヘルプはすべて日本語です。新しい機能追加時も日本語でのコメントとヘルプテキストを維持してください。

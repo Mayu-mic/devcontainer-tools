@@ -4,18 +4,18 @@
 Dockerコンテナの操作に関する機能を提供します。
 """
 
+from __future__ import annotations
+
 import json
 import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from rich.console import Console
 
-from .config import (
-    merge_configurations_for_exec,
-)
+from .config import merge_configurations_for_exec
 
 console = Console()
 
@@ -39,7 +39,7 @@ def run_command(
     return subprocess.run(cmd, check=check, capture_output=capture_output, text=text)
 
 
-def get_container_id(workspace: Path) -> Optional[str]:
+def get_container_id(workspace: Path) -> str | None:
     """
     現在のワークスペースに対応するコンテナIDを取得する。
 
@@ -77,7 +77,7 @@ def get_container_id(workspace: Path) -> Optional[str]:
     return None
 
 
-def get_container_info(container_id: str) -> Optional[dict[str, Any]]:
+def get_container_info(container_id: str) -> dict[str, Any] | None:
     """
     コンテナの詳細情報を取得する。
 
@@ -184,16 +184,16 @@ def stop_and_remove_container(container_id: str, remove_volumes: bool = False) -
 
 
 def execute_in_container(
-    workspace: Path,
+    workspace: Path | None,
     command: list[str],
-    additional_ports: Optional[list[str]] = None,
+    additional_ports: list[str] | None = None,
     auto_up: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """
     コンテナ内でコマンドを実行する（devcontainer CLI使用に統一）
 
     Args:
-        workspace: ワークスペースのパス
+        workspace: ワークスペースのパス（Noneの場合は現在のディレクトリを使用）
         command: 実行するコマンド
         additional_ports: 追加ポートのリスト
         auto_up: コンテナが起動していない場合に自動起動するかどうか
@@ -201,14 +201,19 @@ def execute_in_container(
     Returns:
         コマンドの実行結果
     """
-    # auto_upがtrueの場合、コンテナが起動していなければ自動起動
-    if auto_up:
+    # workspaceが指定されている場合のみauto_up処理を実行
+    if workspace is not None and auto_up:
         ensure_container_running(workspace)
+
+    # devcontainer execでは常にデフォルトの"."を使用
+    workspace_folder = "."
 
     # -pオプション指定時は設定ファイルをマージ
     if additional_ports:
+        # ポート指定時はworkspaceが必要（Noneの場合は現在のディレクトリを使用）
+        actual_workspace = workspace or Path.cwd()
         # 一時設定ファイル作成（upコマンドと同様の処理）
-        merged_config = merge_configurations_for_exec(workspace, additional_ports)
+        merged_config = merge_configurations_for_exec(actual_workspace, additional_ports)
 
         # より安全な一時ファイル管理
         try:
@@ -226,7 +231,7 @@ def execute_in_container(
                 "devcontainer",
                 "exec",
                 "--workspace-folder",
-                str(workspace),
+                workspace_folder,  # 自動検出されたworkspaceFolderを使用
                 "--override-config",
                 temp_config_path,
             ] + command
@@ -240,5 +245,10 @@ def execute_in_container(
                 # ファイル削除に失敗してもエラーにしない（ログを検討）
                 pass
     else:
-        cmd = ["devcontainer", "exec", "--workspace-folder", str(workspace)] + command
+        cmd = [
+            "devcontainer",
+            "exec",
+            "--workspace-folder",
+            workspace_folder,
+        ] + command  # 自動検出されたworkspaceFolderを使用
         return subprocess.run(cmd, text=True)
