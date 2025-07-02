@@ -192,31 +192,31 @@ def get_workspace_folder(workspace: Path) -> str:
     devcontainer.jsonからworkspaceFolderを取得する。
 
     devcontainer.jsonにworkspaceFolderが定義されていない場合は、
-    デフォルト値として'/workspace'を返す。
+    デフォルト値として'.'を返す。
 
     Args:
         workspace: ワークスペースのパス
 
     Returns:
-        workspaceFolder値（デフォルト: /workspace）
+        workspaceFolder値（デフォルト: .）
 
     Raises:
         InvalidWorkspaceFolderError: 無効なworkspaceFolderが指定された場合
     """
     # ワークスペースパスの検証
     if not workspace.exists():
-        return "/workspace"
+        return "."
 
     # devcontainer.jsonを検索
     config_path = find_devcontainer_json(workspace)
     if not config_path:
-        return "/workspace"
+        return "."
 
     # 設定ファイルを読み込み
     config = load_json_file(config_path)
 
     # workspaceFolderを取得（未定義の場合はデフォルト値）
-    workspace_folder = config.get("workspaceFolder", "/workspace")
+    workspace_folder = config.get("workspaceFolder", ".")
 
     # パス検証とサニタイゼーション
     return sanitize_workspace_folder(workspace_folder)

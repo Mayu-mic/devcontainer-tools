@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Optional
 
 import click
 from rich.console import Console
@@ -196,11 +197,13 @@ def up(
 @click.option(
     "--workspace",
     type=click.Path(exists=True, path_type=Path),
-    default=Path.cwd(),
-    help="ワークスペースフォルダ",
+    default=None,
+    help="ワークスペースフォルダ（未指定時は現在のディレクトリを使用）",
 )
 @click.option("--no-up", is_flag=True, help="コンテナが起動していない場合でも自動起動しない")
-def exec(command: tuple[str, ...], ports: tuple[str, ...], workspace: Path, no_up: bool) -> None:
+def exec(
+    command: tuple[str, ...], ports: tuple[str, ...], workspace: Optional[Path], no_up: bool
+) -> None:
     """
     実行中のコンテナ内でコマンドを実行する。
 

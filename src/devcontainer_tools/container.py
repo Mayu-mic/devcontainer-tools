@@ -14,6 +14,7 @@ from typing import Any, Optional, cast
 from rich.console import Console
 
 from .config import (
+    get_workspace_folder,
     merge_configurations_for_exec,
 )
 
@@ -184,7 +185,7 @@ def stop_and_remove_container(container_id: str, remove_volumes: bool = False) -
 
 
 def execute_in_container(
-    workspace: Path,
+    workspace: Optional[Path],
     command: list[str],
     additional_ports: Optional[list[str]] = None,
     auto_up: bool = False,
@@ -193,7 +194,7 @@ def execute_in_container(
     コンテナ内でコマンドを実行する（devcontainer CLI使用に統一）
 
     Args:
-        workspace: ワークスペースのパス
+        workspace: ワークスペースのパス（Noneの場合は現在のディレクトリを使用）
         command: 実行するコマンド
         additional_ports: 追加ポートのリスト
         auto_up: コンテナが起動していない場合に自動起動するかどうか
@@ -201,14 +202,28 @@ def execute_in_container(
     Returns:
         コマンドの実行結果
     """
-    # auto_upがtrueの場合、コンテナが起動していなければ自動起動
-    if auto_up:
-        ensure_container_running(workspace)
+    # workspaceがNoneの場合の処理とworkspaceFolderの自動検出
+    if workspace is None:
+        # workspaceが未指定の場合はデフォルトの"."を使用
+        workspace_folder = "."
+    else:
+        # auto_upがtrueの場合、コンテナが起動していなければ自動起動
+        if auto_up:
+            ensure_container_running(workspace)
+
+        # devcontainer.jsonからworkspaceFolderを自動検出
+        try:
+            workspace_folder = get_workspace_folder(workspace)
+        except Exception:
+            # 設定が見つからない場合はデフォルト値を使用
+            workspace_folder = "."
 
     # -pオプション指定時は設定ファイルをマージ
     if additional_ports:
+        # ポート指定時はworkspaceが必要（Noneの場合は現在のディレクトリを使用）
+        actual_workspace = workspace or Path.cwd()
         # 一時設定ファイル作成（upコマンドと同様の処理）
-        merged_config = merge_configurations_for_exec(workspace, additional_ports)
+        merged_config = merge_configurations_for_exec(actual_workspace, additional_ports)
 
         # より安全な一時ファイル管理
         try:
@@ -226,7 +241,7 @@ def execute_in_container(
                 "devcontainer",
                 "exec",
                 "--workspace-folder",
-                str(workspace),
+                workspace_folder,  # 自動検出されたworkspaceFolderを使用
                 "--override-config",
                 temp_config_path,
             ] + command
@@ -240,5 +255,10 @@ def execute_in_container(
                 # ファイル削除に失敗してもエラーにしない（ログを検討）
                 pass
     else:
-        cmd = ["devcontainer", "exec", "--workspace-folder", str(workspace)] + command
+        cmd = [
+            "devcontainer",
+            "exec",
+            "--workspace-folder",
+            workspace_folder,
+        ] + command  # 自動検出されたworkspaceFolderを使用
         return subprocess.run(cmd, text=True)

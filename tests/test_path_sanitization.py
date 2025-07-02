@@ -94,15 +94,17 @@ class TestPathSanitization:
         result = get_workspace_folder(nonexistent_workspace)
 
         # デフォルト値が返されることを確認
-        assert result == "/workspace"
+        assert result == "."
 
+    @patch("devcontainer_tools.container.get_workspace_folder")
     @patch("subprocess.run")
-    def test_execute_in_container_uses_devcontainer_exec(self, mock_run):
+    def test_execute_in_container_uses_devcontainer_exec(self, mock_run, mock_get_workspace_folder):
         """execute_in_containerは常にdevcontainer execを使用する"""
         # Arrange
         workspace = Path("/test/workspace")
         command = ["pwd"]
         mock_run.return_value = MagicMock(returncode=0)
+        mock_get_workspace_folder.return_value = str(workspace)
 
         # Act
         execute_in_container(
