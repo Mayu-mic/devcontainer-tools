@@ -187,7 +187,6 @@ def execute_in_container(
     workspace: Path | None,
     command: list[str],
     additional_ports: list[str] | None = None,
-    auto_up: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """
     コンテナ内でコマンドを実行する（devcontainer CLI使用に統一）
@@ -196,15 +195,10 @@ def execute_in_container(
         workspace: ワークスペースのパス（Noneの場合は現在のディレクトリを使用）
         command: 実行するコマンド
         additional_ports: 追加ポートのリスト
-        auto_up: コンテナが起動していない場合に自動起動するかどうか
 
     Returns:
         コマンドの実行結果
     """
-    # workspaceが指定されている場合のみauto_up処理を実行
-    if workspace is not None and auto_up:
-        ensure_container_running(workspace)
-
     # devcontainer execでは常にデフォルトの"."を使用
     workspace_folder = "."
 

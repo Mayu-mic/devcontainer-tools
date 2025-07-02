@@ -53,7 +53,9 @@ def cli() -> None:
     "--mount", multiple=True, help="追加マウント (形式: source:target または完全なマウント文字列)"
 )
 @click.option("--env", multiple=True, help="追加環境変数 (形式: NAME=VALUE)")
-@click.option("--port", multiple=True, help="追加ポートフォワード (形式: PORT または PORT:PORT)")
+@click.option(
+    "--port", "-p", multiple=True, help="追加ポートフォワード (形式: PORT または PORT:PORT)"
+)
 @click.option(
     "--workspace",
     type=click.Path(exists=True, path_type=Path),
@@ -201,21 +203,27 @@ def up(
     default=None,
     help="ワークスペースフォルダ（未指定時は現在のディレクトリを使用）",
 )
-@click.option("--no-up", is_flag=True, help="コンテナが起動していない場合でも自動起動しない")
-def exec(
-    command: tuple[str, ...], ports: tuple[str, ...], workspace: Path | None, no_up: bool
-) -> None:
+def exec(command: tuple[str, ...], ports: tuple[str, ...], workspace: Path | None) -> None:
     """
     実行中のコンテナ内でコマンドを実行する。
 
+    コンテナが起動していない場合は、先に 'dev up' を実行してください。
     -pオプションでポートフォワーディングを指定可能。
     dockerと同様の形式（HOST_PORT:CONTAINER_PORT）で指定。
     """
+    # コンテナが起動しているかチェック
+    from .container import is_container_running
+
+    actual_workspace = workspace or Path.cwd()
+    if not is_container_running(actual_workspace):
+        console.print("[bold red]❌ コンテナが起動していません。[/bold red]")
+        console.print("[yellow]先に 'dev up' を実行してください。[/yellow]")
+        sys.exit(1)
+
     result = execute_in_container(
         workspace=workspace,
         command=list(command),
         additional_ports=list(ports) if ports else None,
-        auto_up=not no_up,
     )
     sys.exit(result.returncode)
 
