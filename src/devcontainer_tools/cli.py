@@ -53,7 +53,9 @@ def cli() -> None:
     "--mount", multiple=True, help="追加マウント (形式: source:target または完全なマウント文字列)"
 )
 @click.option("--env", multiple=True, help="追加環境変数 (形式: NAME=VALUE)")
-@click.option("--port", multiple=True, help="追加ポートフォワード (形式: PORT または PORT:PORT)")
+@click.option(
+    "--port", "-p", multiple=True, help="追加ポートフォワード (形式: PORT または PORT:PORT)"
+)
 @click.option(
     "--workspace",
     type=click.Path(exists=True, path_type=Path),

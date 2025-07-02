@@ -275,6 +275,42 @@ class TestCliUp:
             assert "3000" in result.output
             assert '"appPort"' not in result.output
 
+    def test_up_with_short_port_option(self):
+        """Test up command with -p short option for port forwarding."""
+        runner = CliRunner()
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create devcontainer.json
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test", "image": "python:3.12"}')
+
+            # 共通設定ファイルがないことを確認
+            common_config_path = Path(temp_dir) / "common.json"
+
+            result = runner.invoke(
+                cli,
+                [
+                    "up",
+                    "--workspace",
+                    str(workspace),
+                    "--dry-run",
+                    "-p",
+                    "3000",
+                    "-p",
+                    "5000:5000",
+                    "--common-config",
+                    str(common_config_path),
+                ],
+            )
+
+            assert result.exit_code == 0
+            # マージ後の設定にappPortが含まれていることを確認
+            assert '"appPort"' in result.output
+            assert "3000" in result.output
+            assert "5000:5000" in result.output
+
 
 class TestCliExec:
     """Test the exec command."""
