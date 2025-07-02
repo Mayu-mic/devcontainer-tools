@@ -4,9 +4,11 @@
 devcontainer.jsonの設定をマージ・管理する機能を提供します。
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from rich.console import Console
 
@@ -67,8 +69,8 @@ def deep_merge(target: dict[str, Any], source: dict[str, Any]) -> dict[str, Any]
 
 
 def merge_configurations(
-    common_config_path: Optional[Path],
-    project_config_path: Optional[Path],
+    common_config_path: Path | None,
+    project_config_path: Path | None,
     additional_mounts: list[str],
     additional_env: list[tuple[str, str]],
     additional_ports: list[str],

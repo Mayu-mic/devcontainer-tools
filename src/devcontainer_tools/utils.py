@@ -4,9 +4,11 @@
 共通で使用される汎用的な関数を提供します。
 """
 
+from __future__ import annotations
+
 import json
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import json5
 from rich.console import Console
@@ -46,7 +48,7 @@ def load_json_file(file_path: Path) -> dict[str, Any]:
         return {}
 
 
-def find_devcontainer_json(workspace: Path) -> Optional[Path]:
+def find_devcontainer_json(workspace: Path) -> Path | None:
     """
     ワークスペース内のdevcontainer.jsonファイルを検索する。
 

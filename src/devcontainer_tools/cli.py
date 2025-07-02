@@ -4,13 +4,14 @@ CLI メインモジュール
 DevContainer管理ツールのコマンドラインインターフェースを提供します。
 """
 
+from __future__ import annotations
+
 import json
 import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 import click
 from rich.console import Console
@@ -202,7 +203,7 @@ def up(
 )
 @click.option("--no-up", is_flag=True, help="コンテナが起動していない場合でも自動起動しない")
 def exec(
-    command: tuple[str, ...], ports: tuple[str, ...], workspace: Optional[Path], no_up: bool
+    command: tuple[str, ...], ports: tuple[str, ...], workspace: Path | None, no_up: bool
 ) -> None:
     """
     実行中のコンテナ内でコマンドを実行する。

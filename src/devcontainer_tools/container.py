@@ -4,12 +4,14 @@
 Dockerコンテナの操作に関する機能を提供します。
 """
 
+from __future__ import annotations
+
 import json
 import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from rich.console import Console
 
@@ -40,7 +42,7 @@ def run_command(
     return subprocess.run(cmd, check=check, capture_output=capture_output, text=text)
 
 
-def get_container_id(workspace: Path) -> Optional[str]:
+def get_container_id(workspace: Path) -> str | None:
     """
     現在のワークスペースに対応するコンテナIDを取得する。
 
@@ -78,7 +80,7 @@ def get_container_id(workspace: Path) -> Optional[str]:
     return None
 
 
-def get_container_info(container_id: str) -> Optional[dict[str, Any]]:
+def get_container_info(container_id: str) -> dict[str, Any] | None:
     """
     コンテナの詳細情報を取得する。
 
@@ -185,9 +187,9 @@ def stop_and_remove_container(container_id: str, remove_volumes: bool = False) -
 
 
 def execute_in_container(
-    workspace: Optional[Path],
+    workspace: Path | None,
     command: list[str],
-    additional_ports: Optional[list[str]] = None,
+    additional_ports: list[str] | None = None,
     auto_up: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """
