@@ -15,10 +15,7 @@ from typing import Any, cast
 
 from rich.console import Console
 
-from .config import (
-    get_workspace_folder,
-    merge_configurations_for_exec,
-)
+from .config import merge_configurations_for_exec
 
 console = Console()
 
@@ -204,21 +201,12 @@ def execute_in_container(
     Returns:
         コマンドの実行結果
     """
-    # workspaceがNoneの場合の処理とworkspaceFolderの自動検出
-    if workspace is None:
-        # workspaceが未指定の場合はデフォルトの"."を使用
-        workspace_folder = "."
-    else:
-        # auto_upがtrueの場合、コンテナが起動していなければ自動起動
-        if auto_up:
-            ensure_container_running(workspace)
+    # workspaceが指定されている場合のみauto_up処理を実行
+    if workspace is not None and auto_up:
+        ensure_container_running(workspace)
 
-        # devcontainer.jsonからworkspaceFolderを自動検出
-        try:
-            workspace_folder = get_workspace_folder(workspace)
-        except Exception:
-            # 設定が見つからない場合はデフォルト値を使用
-            workspace_folder = "."
+    # devcontainer execでは常にデフォルトの"."を使用
+    workspace_folder = "."
 
     # -pオプション指定時は設定ファイルをマージ
     if additional_ports:

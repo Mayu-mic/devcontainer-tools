@@ -280,15 +280,13 @@ class TestCliExec:
     """Test the exec command."""
 
     @patch("sys.exit")
-    @patch("devcontainer_tools.container.get_workspace_folder")
     @patch("subprocess.run")
-    def test_exec_command(self, mock_subprocess, mock_get_workspace_folder, mock_exit):
+    def test_exec_command(self, mock_subprocess, mock_exit):
         """Test exec command."""
         runner = CliRunner()
 
         # Mock successful execution
         mock_subprocess.return_value = MagicMock(returncode=0)
-        mock_get_workspace_folder.return_value = str(Path("/test/workspace"))
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
@@ -309,7 +307,7 @@ class TestCliExec:
                     "devcontainer",
                     "exec",
                     "--workspace-folder",
-                    str(Path("/test/workspace")),
+                    ".",
                     "bash",
                     "-c",
                     "echo hello",
@@ -320,15 +318,13 @@ class TestCliExec:
             mock_exit.assert_any_call(0)
 
     @patch("sys.exit")
-    @patch("devcontainer_tools.container.get_workspace_folder")
     @patch("subprocess.run")
-    def test_exec_command_failure(self, mock_subprocess, mock_get_workspace_folder, mock_exit):
+    def test_exec_command_failure(self, mock_subprocess, mock_exit):
         """Test exec command when command fails."""
         runner = CliRunner()
 
         # Mock failed execution
         mock_subprocess.return_value = MagicMock(returncode=127)
-        mock_get_workspace_folder.return_value = "/test/workspace"
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
@@ -349,62 +345,13 @@ class TestCliExec:
                     "devcontainer",
                     "exec",
                     "--workspace-folder",
-                    "/test/workspace",
+                    ".",
                     "nonexistent-command",
                 ],
                 text=True,
             )
             # sys.exit(127)が呼び出されることを確認
             mock_exit.assert_any_call(127)
-
-    @patch("sys.exit")
-    @patch("devcontainer_tools.container.get_workspace_folder")
-    @patch("subprocess.run")
-    def test_exec_auto_workspace_folder_detection(
-        self, mock_subprocess, mock_get_workspace_folder, mock_exit
-    ):
-        """
-        Test exec command automatically detects workspace folder from devcontainer.json
-
-        期待される動作:
-        - --workspaceオプション指定時、devcontainer.jsonのworkspaceFolderを自動検出
-        - get_workspace_folderが呼び出される
-        - 検出されたworkspaceFolderが--workspace-folderパラメータに使用される
-        """
-        runner = CliRunner()
-
-        # Mock successful execution
-        mock_subprocess.return_value = MagicMock(returncode=0)
-        expected_workspace_folder = "/workspaces/my-project"
-        mock_get_workspace_folder.return_value = expected_workspace_folder
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            workspace = Path(temp_dir)
-            # Create devcontainer.json with workspaceFolder
-            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
-            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
-            devcontainer_path.write_text(
-                '{"name": "test", "workspaceFolder": "/workspaces/my-project"}'
-            )
-
-            result = runner.invoke(cli, ["exec", "--workspace", str(workspace), "pwd"])
-
-            # テストアサーション
-            assert result.exit_code == 0
-            # get_workspace_folderがworkspaceパスで呼び出されることを確認
-            mock_get_workspace_folder.assert_called_once_with(workspace)
-            # devcontainer execで検出されたworkspaceFolderが使用されることを確認
-            mock_subprocess.assert_called_with(
-                [
-                    "devcontainer",
-                    "exec",
-                    "--workspace-folder",
-                    expected_workspace_folder,  # ここで自動検出されたフォルダが使用される
-                    "pwd",
-                ],
-                text=True,
-            )
-            mock_exit.assert_any_call(0)
 
     @patch("sys.exit")
     @patch("subprocess.run")
@@ -439,59 +386,13 @@ class TestCliExec:
         mock_exit.assert_any_call(0)
 
     @patch("sys.exit")
-    @patch("devcontainer_tools.container.get_workspace_folder")
     @patch("subprocess.run")
-    def test_exec_auto_workspace_folder_fallback(
-        self, mock_subprocess, mock_get_workspace_folder, mock_exit
-    ):
-        """
-        Test exec command fallback when workspace folder detection fails
-
-        期待される動作:
-        - get_workspace_folderが例外を投げた場合、デフォルトの.を使用
-        """
-        runner = CliRunner()
-
-        # Mock successful execution
-        mock_subprocess.return_value = MagicMock(returncode=0)
-        mock_get_workspace_folder.side_effect = Exception("Config not found")
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            workspace = Path(temp_dir)
-            # Create devcontainer.json without workspaceFolder
-            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
-            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
-            devcontainer_path.write_text('{"name": "test"}')
-
-            result = runner.invoke(cli, ["exec", "--workspace", str(workspace), "pwd"])
-
-            # テストアサーション
-            assert result.exit_code == 0
-            # get_workspace_folderがworkspaceパスで呼び出されることを確認
-            mock_get_workspace_folder.assert_called_once_with(workspace)
-            # デフォルトの.が使用されることを確認
-            mock_subprocess.assert_called_with(
-                [
-                    "devcontainer",
-                    "exec",
-                    "--workspace-folder",
-                    ".",  # デフォルト値
-                    "pwd",
-                ],
-                text=True,
-            )
-            mock_exit.assert_any_call(0)
-
-    @patch("sys.exit")
-    @patch("devcontainer_tools.container.get_workspace_folder")
-    @patch("subprocess.run")
-    def test_exec_with_port_option(self, mock_subprocess, mock_get_workspace_folder, mock_exit):
+    def test_exec_with_port_option(self, mock_subprocess, mock_exit):
         """Test exec command with -p port option."""
         runner = CliRunner()
 
         # Mock successful execution
         mock_subprocess.return_value = MagicMock(returncode=0)
-        mock_get_workspace_folder.return_value = "/test/workspace"
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
@@ -528,7 +429,7 @@ class TestCliExec:
             assert second_call_args[0] == "devcontainer"
             assert second_call_args[1] == "exec"
             assert second_call_args[2] == "--workspace-folder"
-            assert second_call_args[3] == "/test/workspace"
+            assert second_call_args[3] == "."
             assert second_call_args[4] == "--override-config"
             # second_call_args[5] は一時ファイルのパス（動的なので詳細チェックしない）
             assert second_call_args[6] == "npm"
@@ -538,15 +439,13 @@ class TestCliExec:
             mock_exit.assert_any_call(0)
 
     @patch("sys.exit")
-    @patch("devcontainer_tools.container.get_workspace_folder")
     @patch("subprocess.run")
-    def test_exec_without_port_option(self, mock_subprocess, mock_get_workspace_folder, mock_exit):
+    def test_exec_without_port_option(self, mock_subprocess, mock_exit):
         """Test exec command without -p port option."""
         runner = CliRunner()
 
         # Mock successful execution
         mock_subprocess.return_value = MagicMock(returncode=0)
-        mock_get_workspace_folder.return_value = "/test/workspace"
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
@@ -567,7 +466,7 @@ class TestCliExec:
                     "devcontainer",
                     "exec",
                     "--workspace-folder",
-                    "/test/workspace",
+                    ".",
                     "python",
                     "app.py",
                 ],
@@ -577,15 +476,13 @@ class TestCliExec:
             mock_exit.assert_any_call(0)
 
     @patch("sys.exit")
-    @patch("devcontainer_tools.container.get_workspace_folder")
     @patch("subprocess.run")
-    def test_exec_with_no_up_option(self, mock_subprocess, mock_get_workspace_folder, mock_exit):
+    def test_exec_with_no_up_option(self, mock_subprocess, mock_exit):
         """Test exec command with --no-up option."""
         runner = CliRunner()
 
         # Mock successful execution
         mock_subprocess.return_value = MagicMock(returncode=0)
-        mock_get_workspace_folder.return_value = "/test/workspace"
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
@@ -602,7 +499,7 @@ class TestCliExec:
             assert result.exit_code == 0
             # devcontainer execが正しい引数で呼び出されることを確認
             mock_subprocess.assert_called_with(
-                ["devcontainer", "exec", "--workspace-folder", "/test/workspace", "ls", "-la"],
+                ["devcontainer", "exec", "--workspace-folder", ".", "ls", "-la"],
                 text=True,
             )
             # sys.exit(0)が呼び出されることを確認

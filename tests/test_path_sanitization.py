@@ -96,15 +96,13 @@ class TestPathSanitization:
         # デフォルト値が返されることを確認
         assert result == "."
 
-    @patch("devcontainer_tools.container.get_workspace_folder")
     @patch("subprocess.run")
-    def test_execute_in_container_uses_devcontainer_exec(self, mock_run, mock_get_workspace_folder):
+    def test_execute_in_container_uses_devcontainer_exec(self, mock_run):
         """execute_in_containerは常にdevcontainer execを使用する"""
         # Arrange
         workspace = Path("/test/workspace")
         command = ["pwd"]
         mock_run.return_value = MagicMock(returncode=0)
-        mock_get_workspace_folder.return_value = str(workspace)
 
         # Act
         execute_in_container(
@@ -116,7 +114,7 @@ class TestPathSanitization:
         mock_run.assert_called_once()
         called_cmd = mock_run.call_args[0][0]
         # devcontainer execが使用されることを確認
-        assert called_cmd[:4] == ["devcontainer", "exec", "--workspace-folder", str(workspace)]
+        assert called_cmd[:4] == ["devcontainer", "exec", "--workspace-folder", "."]
         assert called_cmd[4:] == ["pwd"]
 
     def test_path_normalization_edge_cases(self):
