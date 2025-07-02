@@ -10,8 +10,6 @@ import json
 from pathlib import Path
 from typing import Any
 
-from rich.console import Console
-
 from .utils import find_devcontainer_json, load_json_file, parse_mount_string
 
 
@@ -257,67 +255,3 @@ def sanitize_workspace_folder(workspace_folder: str) -> str:
         return sanitized_path
     except (ValueError, OSError) as e:
         raise InvalidWorkspaceFolderError(f"無効なworkspaceFolder: {workspace_folder}") from e
-
-
-def merge_configurations_for_exec(workspace: Path, additional_ports: list[str]) -> dict[str, Any]:
-    """
-    exec用の設定をマージする（upコマンドの簡略版）
-
-    Args:
-        workspace: ワークスペースのパス
-        additional_ports: 追加ポートのリスト
-
-    Returns:
-        マージされた設定辞書
-    """
-    # 既存設定を読み込み
-    project_config_path = find_devcontainer_json(workspace)
-    common_config = Path.home() / ".config" / "devcontainer.common.json"
-
-    # まず基本設定をマージ（ポートなし）
-    merged = merge_configurations(
-        common_config if common_config.exists() else None,
-        project_config_path,
-        [],  # additional_mounts
-        [],  # additional_env
-        [],  # additional_ports（ここでは空）
-        False,  # auto_forward_ports
-    )
-
-    # 次に、exec用のポート処理を行う（HOST:CONTAINERをパースして整数に変換）
-    if additional_ports:
-        if "appPort" not in merged:
-            merged["appPort"] = []
-        elif not isinstance(merged["appPort"], list):
-            # appPortが単一の値の場合はリストに変換
-            merged["appPort"] = [merged["appPort"]]
-
-        # ポート文字列をパースして整数リストに変換
-        for port_string in additional_ports:
-            # "HOST:CONTAINER" 形式をパースしてコンテナポートを抽出
-            if ":" in port_string:
-                _, container_port = port_string.split(":", 1)
-            else:
-                container_port = port_string
-
-            try:
-                port_num = int(container_port)
-                # ポート番号の有効範囲をチェック
-                if not (1 <= port_num <= 65535):
-                    console = Console()
-                    console.print(
-                        f"[yellow]Warning: Invalid port {port_num}, skipping (valid range: 1-65535)[/yellow]"
-                    )
-                    continue
-
-                if port_num not in merged["appPort"]:
-                    merged["appPort"].append(port_num)
-            except ValueError:
-                # 無効なポート番号の場合は警告を表示
-                console = Console()
-                console.print(
-                    f"[yellow]Warning: Invalid port format '{container_port}', skipping[/yellow]"
-                )
-                continue
-
-    return merged
