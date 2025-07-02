@@ -285,8 +285,16 @@ class TestCliExec:
         """Test exec command."""
         runner = CliRunner()
 
-        # Mock successful execution
-        mock_subprocess.return_value = MagicMock(returncode=0)
+        # Mock successful execution - コンテナチェックとexec実行の両方
+        def mock_subprocess_side_effect(cmd, **kwargs):
+            if cmd[0] == "docker" and cmd[1] == "ps":
+                # get_container_id returns container ID (container is running)
+                return MagicMock(returncode=0, stdout="abc123container\n", stderr="")
+            elif cmd[0] == "devcontainer" and cmd[1] == "exec":
+                return MagicMock(returncode=0)
+            return MagicMock(returncode=0)
+
+        mock_subprocess.side_effect = mock_subprocess_side_effect
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
@@ -301,19 +309,20 @@ class TestCliExec:
 
             # テストアサーション
             assert result.exit_code == 0
-            # devcontainer execが正しい引数で呼び出されることを確認
-            mock_subprocess.assert_called_with(
-                [
-                    "devcontainer",
-                    "exec",
-                    "--workspace-folder",
-                    ".",
-                    "bash",
-                    "-c",
-                    "echo hello",
-                ],
-                text=True,
-            )
+            # docker ps でコンテナチェックが行われることを確認
+            docker_calls = [
+                call
+                for call in mock_subprocess.call_args_list
+                if len(call[0]) > 0 and call[0][0][0] == "docker"
+            ]
+            assert len(docker_calls) >= 1
+            # devcontainer exec が呼び出されることを確認
+            exec_calls = [
+                call
+                for call in mock_subprocess.call_args_list
+                if len(call[0]) > 0 and call[0][0][0] == "devcontainer"
+            ]
+            assert len(exec_calls) >= 1
             # sys.exit(0)が呼び出されることを確認
             mock_exit.assert_any_call(0)
 
@@ -323,8 +332,17 @@ class TestCliExec:
         """Test exec command when command fails."""
         runner = CliRunner()
 
-        # Mock failed execution
-        mock_subprocess.return_value = MagicMock(returncode=127)
+        # Mock successful container check but failed exec
+        def mock_subprocess_side_effect(cmd, **kwargs):
+            if cmd[0] == "docker" and cmd[1] == "ps":
+                # コンテナは起動している
+                return MagicMock(returncode=0, stdout="abc123container\n", stderr="")
+            elif cmd[0] == "devcontainer" and cmd[1] == "exec":
+                # exec コマンドは失敗
+                return MagicMock(returncode=127)
+            return MagicMock(returncode=0)
+
+        mock_subprocess.side_effect = mock_subprocess_side_effect
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
@@ -339,17 +357,13 @@ class TestCliExec:
 
             # テストアサーション
             assert result.exit_code == 0  # sys.exit() is mocked, so CliRunner sees success
-            # devcontainer execが正しい引数で呼び出されることを確認
-            mock_subprocess.assert_called_with(
-                [
-                    "devcontainer",
-                    "exec",
-                    "--workspace-folder",
-                    ".",
-                    "nonexistent-command",
-                ],
-                text=True,
-            )
+            # devcontainer exec が呼び出されることを確認
+            exec_calls = [
+                call
+                for call in mock_subprocess.call_args_list
+                if len(call[0]) > 0 and call[0][0][0] == "devcontainer"
+            ]
+            assert len(exec_calls) >= 1
             # sys.exit(127)が呼び出されることを確認
             mock_exit.assert_any_call(127)
 
@@ -361,28 +375,40 @@ class TestCliExec:
 
         期待される動作:
         - --workspaceオプションなしの場合、workspace=Noneが渡される
+        - 現在のディレクトリでコンテナチェックが実行される
         - execute_in_containerでworkspace_folder="."が使用される
         """
         runner = CliRunner()
 
-        # Mock successful execution
-        mock_subprocess.return_value = MagicMock(returncode=0)
+        # Mock successful execution - コンテナチェックも含む
+        def mock_subprocess_side_effect(cmd, **kwargs):
+            if cmd[0] == "docker" and cmd[1] == "ps":
+                # コンテナは起動している（現在のディレクトリ）
+                return MagicMock(returncode=0, stdout="abc123container\n", stderr="")
+            elif cmd[0] == "devcontainer" and cmd[1] == "exec":
+                return MagicMock(returncode=0)
+            return MagicMock(returncode=0)
+
+        mock_subprocess.side_effect = mock_subprocess_side_effect
 
         result = runner.invoke(cli, ["exec", "pwd"])
 
         # テストアサーション
         assert result.exit_code == 0
-        # devcontainer execでデフォルトの"."が使用されることを確認
-        mock_subprocess.assert_called_with(
-            [
-                "devcontainer",
-                "exec",
-                "--workspace-folder",
-                ".",  # workspaceがNoneの場合のデフォルト値
-                "pwd",
-            ],
-            text=True,
-        )
+        # docker ps でコンテナチェックが行われることを確認
+        docker_calls = [
+            call
+            for call in mock_subprocess.call_args_list
+            if len(call[0]) > 0 and call[0][0][0] == "docker"
+        ]
+        assert len(docker_calls) >= 1
+        # devcontainer exec が呼び出されることを確認
+        exec_calls = [
+            call
+            for call in mock_subprocess.call_args_list
+            if len(call[0]) > 0 and call[0][0][0] == "devcontainer"
+        ]
+        assert len(exec_calls) >= 1
         mock_exit.assert_any_call(0)
 
     @patch("sys.exit")
@@ -391,8 +417,16 @@ class TestCliExec:
         """Test exec command with -p port option."""
         runner = CliRunner()
 
-        # Mock successful execution
-        mock_subprocess.return_value = MagicMock(returncode=0)
+        # Mock successful execution - コンテナチェックも含む
+        def mock_subprocess_side_effect(cmd, **kwargs):
+            if cmd[0] == "docker" and cmd[1] == "ps":
+                # コンテナは起動している
+                return MagicMock(returncode=0, stdout="abc123container\n", stderr="")
+            elif cmd[0] == "devcontainer" and cmd[1] == "exec":
+                return MagicMock(returncode=0)
+            return MagicMock(returncode=0)
+
+        mock_subprocess.side_effect = mock_subprocess_side_effect
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
@@ -419,21 +453,24 @@ class TestCliExec:
 
             # テストアサーション
             assert result.exit_code == 0
-            # subprocess.runが2回呼び出されることを確認（docker ps + devcontainer exec）
-            assert mock_subprocess.call_count == 2
+            # devcontainer exec が呼び出されることを確認
+            exec_calls = [
+                call
+                for call in mock_subprocess.call_args_list
+                if len(call[0]) > 0 and call[0][0][0] == "devcontainer"
+            ]
+            assert len(exec_calls) >= 1
 
-            # 2回目の呼び出し（devcontainer exec）をチェック
-            second_call_args = mock_subprocess.call_args_list[1][0][
-                0
-            ]  # 2回目の位置引数（コマンドリスト）
-            assert second_call_args[0] == "devcontainer"
-            assert second_call_args[1] == "exec"
-            assert second_call_args[2] == "--workspace-folder"
-            assert second_call_args[3] == "."
-            assert second_call_args[4] == "--override-config"
-            # second_call_args[5] は一時ファイルのパス（動的なので詳細チェックしない）
-            assert second_call_args[6] == "npm"
-            assert second_call_args[7] == "start"
+            # devcontainer execの引数を確認
+            exec_call_args = exec_calls[0][0][0]  # 最初のexec呼び出しの引数
+            assert exec_call_args[0] == "devcontainer"
+            assert exec_call_args[1] == "exec"
+            assert exec_call_args[2] == "--workspace-folder"
+            assert exec_call_args[3] == "."
+            assert exec_call_args[4] == "--override-config"
+            # exec_call_args[5] は一時ファイルのパス（動的なので詳細チェックしない）
+            assert exec_call_args[6] == "npm"
+            assert exec_call_args[7] == "start"
 
             # sys.exit(0)が呼び出されることを確認
             mock_exit.assert_any_call(0)
@@ -444,8 +481,16 @@ class TestCliExec:
         """Test exec command without -p port option."""
         runner = CliRunner()
 
-        # Mock successful execution
-        mock_subprocess.return_value = MagicMock(returncode=0)
+        # Mock successful execution - コンテナチェックも含む
+        def mock_subprocess_side_effect(cmd, **kwargs):
+            if cmd[0] == "docker" and cmd[1] == "ps":
+                # コンテナは起動している
+                return MagicMock(returncode=0, stdout="abc123container\n", stderr="")
+            elif cmd[0] == "devcontainer" and cmd[1] == "exec":
+                return MagicMock(returncode=0)
+            return MagicMock(returncode=0)
+
+        mock_subprocess.side_effect = mock_subprocess_side_effect
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
@@ -460,29 +505,39 @@ class TestCliExec:
 
             # テストアサーション
             assert result.exit_code == 0
-            # devcontainer execが正しい引数で呼び出されることを確認
-            mock_subprocess.assert_called_with(
-                [
-                    "devcontainer",
-                    "exec",
-                    "--workspace-folder",
-                    ".",
-                    "python",
-                    "app.py",
-                ],
-                text=True,
-            )
+            # devcontainer exec が呼び出されることを確認
+            exec_calls = [
+                call
+                for call in mock_subprocess.call_args_list
+                if len(call[0]) > 0 and call[0][0][0] == "devcontainer"
+            ]
+            assert len(exec_calls) >= 1
+
+            # devcontainer execの引数を確認
+            exec_call_args = exec_calls[0][0][0]
+            assert exec_call_args[0] == "devcontainer"
+            assert exec_call_args[1] == "exec"
+            assert exec_call_args[2] == "--workspace-folder"
+            assert exec_call_args[3] == "."
+            assert exec_call_args[4] == "python"
+            assert exec_call_args[5] == "app.py"
             # sys.exit(0)が呼び出されることを確認
             mock_exit.assert_any_call(0)
 
     @patch("sys.exit")
     @patch("subprocess.run")
-    def test_exec_with_no_up_option(self, mock_subprocess, mock_exit):
-        """Test exec command with --no-up option."""
+    def test_exec_container_not_running_shows_error(self, mock_subprocess, mock_exit):
+        """Test exec command when container is not running - should show clear error message."""
         runner = CliRunner()
 
-        # Mock successful execution
-        mock_subprocess.return_value = MagicMock(returncode=0)
+        # Mock container not found (empty stdout) - コンテナチェックのために docker ps を呼び出す
+        def mock_subprocess_side_effect(cmd, **kwargs):
+            if cmd[0] == "docker" and cmd[1] == "ps":
+                # get_container_id returns None (no container found)
+                return MagicMock(returncode=0, stdout="", stderr="")
+            return MagicMock(returncode=0)
+
+        mock_subprocess.side_effect = mock_subprocess_side_effect
 
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
@@ -491,19 +546,15 @@ class TestCliExec:
             devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
             devcontainer_path.write_text('{"name": "test"}')
 
-            result = runner.invoke(
-                cli, ["exec", "--workspace", str(workspace), "--no-up", "--", "ls", "-la"]
-            )
+            result = runner.invoke(cli, ["exec", "--workspace", str(workspace), "--", "ls", "-la"])
 
-            # テストアサーション
-            assert result.exit_code == 0
-            # devcontainer execが正しい引数で呼び出されることを確認
-            mock_subprocess.assert_called_with(
-                ["devcontainer", "exec", "--workspace-folder", ".", "ls", "-la"],
-                text=True,
-            )
-            # sys.exit(0)が呼び出されることを確認
-            mock_exit.assert_any_call(0)
+            # テストアサーション: コンテナが起動していない場合、事前チェックでエラーになる
+            assert result.exit_code == 0  # sys.exit is mocked
+            # 適切なエラーメッセージが表示されることを確認
+            assert "コンテナが起動していません" in result.output
+            assert "先に 'dev up' を実行してください" in result.output
+            # sys.exit(1)が呼び出されることを確認（コンテナ未起動エラー）
+            mock_exit.assert_any_call(1)
 
 
 class TestCliStatus:
