@@ -84,6 +84,9 @@ dev up --clean --no-cache
 # 追加マウントとポートフォワードを指定
 dev up --mount /host/data:/workspace/data --port 8080
 
+# 短縮形オプションを使用
+dev up -p 3000 -p 5000:5000
+
 # 環境変数を追加
 dev up --env NODE_ENV=development --env DEBUG=true
 
@@ -281,7 +284,7 @@ dev up [OPTIONS]
 - `--gpu`: GPU サポートを有効化
 - `--mount TEXT`: 追加マウント（複数指定可）
 - `--env TEXT`: 追加環境変数（複数指定可）
-- `--port TEXT`: 追加ポートフォワード（複数指定可）
+- `--port TEXT` / `-p TEXT`: 追加ポートフォワード（複数指定可）
 - `--workspace PATH`: ワークスペースフォルダ（デフォルト: カレントディレクトリ）
 - `--common-config PATH`: 共通設定ファイル（デフォルト: devcontainer.common.json）
 - `--debug`: デバッグ情報を表示
@@ -298,7 +301,9 @@ dev exec [OPTIONS] COMMAND...
 
 **オプション:**
 - `--workspace PATH`: ワークスペースフォルダ
-- `--no-up`: コンテナが起動していない場合でも自動起動しない
+- `-p TEXT`: 追加ポートフォワード（複数指定可）
+
+**注意:** コンテナが起動していない場合は、先に 'dev up' を実行してください。
 
 ### `dev status`
 
