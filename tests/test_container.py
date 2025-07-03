@@ -6,6 +6,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from devcontainer_tools.container import (
+    _get_error_message,
+    _truncate_output,
     ensure_container_running,
     execute_in_container,
     run_command,
@@ -274,3 +276,66 @@ class TestEnsureContainerRunning:
 
         # Assert
         assert result is False
+
+
+class TestHelperFunctions:
+    """ヘルパー関数のテスト"""
+
+    def test_truncate_output_short_text(self):
+        """短いテキストの切り詰めテスト"""
+        text = "short text"
+        result = _truncate_output(text)
+        assert result == "short text"
+
+    def test_truncate_output_long_text(self):
+        """長いテキストの切り詰めテスト"""
+        text = "a" * 250
+        result = _truncate_output(text)
+        assert result == "a" * 200 + "..."
+        assert len(result) == 203
+
+    def test_truncate_output_custom_length(self):
+        """カスタム長さでの切り詰めテスト"""
+        text = "a" * 150
+        result = _truncate_output(text, max_length=100)
+        assert result == "a" * 100 + "..."
+
+    def test_get_error_message_stderr_priority(self):
+        """stderr優先のエラーメッセージテスト"""
+        result = MagicMock()
+        result.stderr = "stderr message"
+        result.stdout = "stdout message"
+        result.returncode = 1
+
+        error_msg = _get_error_message(result)
+        assert error_msg == "stderr message"
+
+    def test_get_error_message_stdout_fallback(self):
+        """stdout代替のエラーメッセージテスト"""
+        result = MagicMock()
+        result.stderr = ""
+        result.stdout = "stdout message"
+        result.returncode = 1
+
+        error_msg = _get_error_message(result)
+        assert error_msg == "stdout message"
+
+    def test_get_error_message_returncode_fallback(self):
+        """終了コード代替のエラーメッセージテスト"""
+        result = MagicMock()
+        result.stderr = ""
+        result.stdout = ""
+        result.returncode = 127
+
+        error_msg = _get_error_message(result)
+        assert error_msg == "プロセス終了コード: 127"
+
+    def test_get_error_message_with_whitespace(self):
+        """空白文字を含むエラーメッセージのテスト"""
+        result = MagicMock()
+        result.stderr = "  error with spaces  "
+        result.stdout = ""
+        result.returncode = 1
+
+        error_msg = _get_error_message(result)
+        assert error_msg == "error with spaces"
