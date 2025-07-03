@@ -89,8 +89,8 @@ def get_container_id(workspace: Path) -> str | None:
     """
     現在のワークスペースに対応するコンテナIDを取得する。
 
-    Dockerのラベルを使用してコンテナを検索する。
-    複数のラベル形式を試す。
+    docker-composeプロジェクトの場合は専用の取得メソッドを使用し、
+    そうでない場合はDockerのラベルを使用してコンテナを検索する。
 
     Args:
         workspace: ワークスペースのパス
@@ -99,6 +99,11 @@ def get_container_id(workspace: Path) -> str | None:
         コンテナID（見つからない場合はNone）
     """
     try:
+        # docker-composeプロジェクトの場合は専用の取得メソッドを使用
+        if is_compose_project(workspace):
+            return get_compose_container_id(workspace)
+
+        # 通常のコンテナの場合はラベルで検索
         # ワークスペースフォルダのラベルで検索
         result = run_command(
             ["docker", "ps", "-q", "-f", f"label=devcontainer.local_folder={workspace}"],
@@ -256,3 +261,128 @@ def execute_in_container(
         workspace_folder,
     ] + command
     return subprocess.run(cmd, text=True)
+
+
+def is_compose_project(workspace: Path) -> bool:
+    """
+    ワークスペースがdocker-composeプロジェクトかどうかを判定する。
+
+    Args:
+        workspace: ワークスペースのパス
+
+    Returns:
+        docker-composeプロジェクトの場合True、そうでない場合False
+    """
+    from .utils import detect_compose_config
+
+    compose_config = detect_compose_config(workspace)
+    return compose_config is not None
+
+
+def get_compose_containers(workspace: Path) -> list[str]:
+    """
+    docker-composeプロジェクトのコンテナ一覧を取得する。
+
+    Args:
+        workspace: ワークスペースのパス
+
+    Returns:
+        コンテナIDのリスト
+    """
+    try:
+        # docker compose ps -q で実行中のコンテナ一覧を取得
+        result = run_command(
+            ["docker", "compose", "ps", "-q"],
+            check=False,
+        )
+
+        if result.returncode == 0 and result.stdout and result.stdout.strip():
+            return [
+                container_id.strip()
+                for container_id in result.stdout.strip().split("\n")
+                if container_id.strip()
+            ]
+
+        return []
+    except Exception:
+        return []
+
+
+def stop_and_remove_compose_containers(workspace: Path, remove_volumes: bool = False) -> bool:
+    """
+    docker-composeプロジェクトのすべてのコンテナを停止・削除する。
+
+    Args:
+        workspace: ワークスペースのパス
+        remove_volumes: 関連するボリュームも削除するかどうか
+
+    Returns:
+        成功した場合True、失敗した場合False
+    """
+    try:
+        console.print("[yellow]docker-composeプロジェクトを停止・削除しています...[/yellow]")
+
+        # docker compose down ですべてのコンテナを停止・削除
+        cmd = ["docker", "compose", "down"]
+        if remove_volumes:
+            cmd.append("-v")  # ボリュームも削除
+
+        result = run_command(cmd, check=False, verbose=True)
+
+        if result.returncode != 0:
+            error_msg = _get_error_message(result)
+            console.print(
+                f"[red]docker-composeプロジェクトの停止・削除に失敗しました: {error_msg}[/red]"
+            )
+            return False
+
+        console.print("[green]✓ docker-composeプロジェクトの停止・削除が完了しました[/green]")
+        return True
+
+    except Exception as e:
+        console.print(
+            f"[red]docker-composeプロジェクトの停止・削除中にエラーが発生しました: {e}[/red]"
+        )
+        return False
+
+
+def get_compose_container_id(workspace: Path, service_name: str | None = None) -> str | None:
+    """
+    docker-composeプロジェクトから指定されたサービスのコンテナIDを取得する。
+
+    Args:
+        workspace: ワークスペースのパス
+        service_name: サービス名（省略時は最初のサービス）
+
+    Returns:
+        コンテナID（見つからない場合はNone）
+    """
+    try:
+        from .utils import detect_compose_config
+
+        # compose設定を確認
+        compose_config = detect_compose_config(workspace)
+        if not compose_config:
+            return None
+
+        # service_nameが指定されていない場合は、devcontainer.jsonから取得
+        if not service_name:
+            service_name = compose_config["devcontainer_config"].get("service")
+            if not service_name:
+                # サービス名が不明な場合は最初のコンテナを取得
+                containers = get_compose_containers(workspace)
+                return containers[0] if containers else None
+
+        # 指定されたサービスのコンテナIDを取得
+        result = run_command(
+            ["docker", "compose", "ps", "-q", service_name],
+            check=False,
+        )
+
+        if result.returncode == 0 and result.stdout and result.stdout.strip():
+            return result.stdout.strip().split("\n")[0]
+
+    except Exception:
+        pass
+
+    return None
