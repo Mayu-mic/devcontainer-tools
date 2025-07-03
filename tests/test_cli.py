@@ -311,6 +311,106 @@ class TestCliUp:
             assert "3000" in result.output
             assert "5000:5000" in result.output
 
+    @patch("subprocess.run")
+    def test_up_with_rebuild_flag(self, mock_subprocess):
+        """Test up command with --rebuild flag."""
+        runner = CliRunner()
+
+        mock_subprocess.return_value = MagicMock(returncode=0)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create devcontainer.json
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test"}')
+
+            result = runner.invoke(
+                cli,
+                [
+                    "up",
+                    "--workspace",
+                    str(workspace),
+                    "--rebuild",
+                ],
+            )
+
+            assert result.exit_code == 0
+
+            # Verify --rebuild implies --clean and --no-cache
+            args = mock_subprocess.call_args[0][0]
+            assert "--remove-existing-container" in args
+            assert "--build-no-cache" in args
+
+    @patch("subprocess.run")
+    def test_up_with_rebuild_and_other_options(self, mock_subprocess):
+        """Test up command with --rebuild and other options."""
+        runner = CliRunner()
+
+        mock_subprocess.return_value = MagicMock(returncode=0)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create devcontainer.json
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test"}')
+
+            result = runner.invoke(
+                cli,
+                [
+                    "up",
+                    "--workspace",
+                    str(workspace),
+                    "--rebuild",
+                    "--port",
+                    "3000",
+                    "--mount",
+                    "/host:/container",
+                    "--env",
+                    "NODE_ENV=development",
+                ],
+            )
+
+            assert result.exit_code == 0
+
+            # Verify --rebuild implies --clean and --no-cache
+            args = mock_subprocess.call_args[0][0]
+            assert "--remove-existing-container" in args
+            assert "--build-no-cache" in args
+
+    @patch("subprocess.run")
+    def test_up_with_rebuild_and_no_cache_flag(self, mock_subprocess):
+        """Test up command with --rebuild and --no-cache flag combination."""
+        runner = CliRunner()
+
+        mock_subprocess.return_value = MagicMock(returncode=0)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create devcontainer.json
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test"}')
+
+            result = runner.invoke(
+                cli,
+                [
+                    "up",
+                    "--workspace",
+                    str(workspace),
+                    "--rebuild",
+                    "--no-cache",
+                ],
+            )
+
+            assert result.exit_code == 0
+
+            # Verify --rebuild implies --clean and --no-cache
+            args = mock_subprocess.call_args[0][0]
+            assert "--remove-existing-container" in args
+            assert "--build-no-cache" in args
+
 
 class TestCliExec:
     """Test the exec command."""
@@ -595,8 +695,8 @@ class TestCliRebuild:
     """Test the rebuild command."""
 
     @patch("subprocess.run")
-    def test_rebuild(self, mock_subprocess):
-        """Test rebuild command."""
+    def test_rebuild_shows_deprecation_warning(self, mock_subprocess):
+        """Test rebuild command shows deprecation warning."""
         runner = CliRunner()
 
         mock_subprocess.return_value = MagicMock(returncode=0)
@@ -609,6 +709,45 @@ class TestCliRebuild:
             devcontainer_path.write_text('{"name": "test"}')
 
             result = runner.invoke(cli, ["rebuild", "--workspace", str(workspace)])
+
+            assert result.exit_code == 0
+
+            # Verify deprecation warning is shown
+            assert "deprecate" in result.output.lower() or "非推奨" in result.output
+
+            # Verify that clean and no-cache options were used
+            args = mock_subprocess.call_args[0][0]
+            assert "--remove-existing-container" in args
+            assert "--build-no-cache" in args
+
+    @patch("subprocess.run")
+    def test_rebuild_with_additional_options(self, mock_subprocess):
+        """Test rebuild command passes additional options through."""
+        runner = CliRunner()
+
+        mock_subprocess.return_value = MagicMock(returncode=0)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create devcontainer.json
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test"}')
+
+            result = runner.invoke(
+                cli,
+                [
+                    "rebuild",
+                    "--workspace",
+                    str(workspace),
+                    "--port",
+                    "3000",
+                    "--mount",
+                    "/host:/container",
+                    "--env",
+                    "NODE_ENV=development",
+                ],
+            )
 
             assert result.exit_code == 0
 
@@ -754,6 +893,7 @@ class TestCliHelp:
         assert result.exit_code == 0
         assert "開発コンテナを起動" in result.output
         assert "--auto-forward-ports" in result.output
+        assert "--rebuild" in result.output
 
     def test_down_help(self):
         """Test down command help."""

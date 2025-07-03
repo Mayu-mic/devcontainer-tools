@@ -99,6 +99,12 @@ dev up
 # 設定確認のみ
 dev up --dry-run
 
+# コンテナを再ビルド（--cleanと--no-cacheを自動適用）
+dev up --rebuild
+
+# 再ビルドと追加オプションを組み合わせ
+dev up --rebuild --port 3000 --mount /host:/container --env NODE_ENV=development
+
 # forwardPortsをappPortに自動変換して起動
 dev up --auto-forward-ports
 
@@ -122,6 +128,29 @@ dev up --auto-forward-ports  # forwardPortsがappPortに変換される
 - VS Code拡張機能は`forwardPorts`を正常に認識
 - devcontainer CLIは`appPort`を使用（`--auto-forward-ports`指定時のみ）
 - 設定の重複や競合を回避
+
+### コマンド体系の改善
+
+**新しいコマンド体系（推奨）:**
+```bash
+# 基本起動
+dev up
+
+# リビルド付き起動（--cleanと--no-cacheを自動適用）
+dev up --rebuild
+
+# オプションと組み合わせ可能
+dev up --rebuild --port 3000:3000 --mount ./data:/app/data --env NODE_ENV=dev
+```
+
+**従来のコマンド（後方互換性のために維持）:**
+```bash
+# 非推奨警告が表示されるが、機能は維持
+dev rebuild
+
+# 全オプションが利用可能
+dev rebuild --port 3000 --mount /host:/container --env NODE_ENV=development
+```
 
 ## アーキテクチャ
 
@@ -147,8 +176,10 @@ dev up --auto-forward-ports  # forwardPortsがappPortに変換される
 - **up**: 設定マージ → 一時ファイル作成 → devcontainer CLIに委譲
   - `--dry-run`オプションで設定確認のみ可能
   - `--auto-forward-ports`オプションで`forwardPorts`から`appPort`への自動変換を有効化
+  - `--rebuild`オプションで`--clean`と`--no-cache`を自動適用
 - **exec**: コンテナID検出 → docker exec優先、フォールバックでdevcontainer exec
 - **status**: コンテナID取得 → docker inspectで詳細情報表示
+- **rebuild**: 非推奨警告表示 → 内部的に`dev up --rebuild`を呼び出し（全オプション対応）
 
 ## テスト戦略
 

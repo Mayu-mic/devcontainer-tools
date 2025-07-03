@@ -48,6 +48,9 @@ def cli() -> None:
 @cli.command()
 @click.option("--clean", is_flag=True, help="既存のコンテナを削除してから起動")
 @click.option("--no-cache", is_flag=True, help="キャッシュを使用せずにビルド")
+@click.option(
+    "--rebuild", is_flag=True, help="コンテナを再ビルドする（--cleanと--no-cacheを自動的に適用）"
+)
 @click.option("--gpu", is_flag=True, help="GPU サポートを有効化")
 @click.option(
     "--mount", multiple=True, help="追加マウント (形式: source:target または完全なマウント文字列)"
@@ -74,6 +77,7 @@ def cli() -> None:
 def up(
     clean: bool,
     no_cache: bool,
+    rebuild: bool,
     gpu: bool,
     mount: tuple[str, ...],
     env: tuple[str, ...],
@@ -90,7 +94,13 @@ def up(
     共通設定とプロジェクト設定を自動的にマージします。
     --auto-forward-portsオプションを指定すると、
     forwardPortsからappPortへの変換も行います。
+    --rebuildオプションを指定すると、--cleanと--no-cacheが自動的に適用されます。
     """
+    # --rebuildフラグが指定された場合、cleanとno_cacheを有効にする
+    if rebuild:
+        clean = True
+        no_cache = True
+
     console.print("[bold green]Starting devcontainer...[/bold green]")
 
     # プロジェクト設定を検索
@@ -223,23 +233,71 @@ def exec(command: tuple[str, ...], workspace: Path | None) -> None:
 
 
 @cli.command()
+@click.option("--gpu", is_flag=True, help="GPU サポートを有効化")
+@click.option(
+    "--mount", multiple=True, help="追加マウント (形式: source:target または完全なマウント文字列)"
+)
+@click.option("--env", multiple=True, help="追加環境変数 (形式: NAME=VALUE)")
+@click.option(
+    "--port", "-p", multiple=True, help="追加ポートフォワード (形式: PORT または PORT:PORT)"
+)
 @click.option(
     "--workspace",
     type=click.Path(exists=True, path_type=Path),
     default=Path.cwd(),
     help="ワークスペースフォルダ",
 )
+@click.option(
+    "--common-config",
+    type=click.Path(path_type=Path),
+    default=Path.home() / ".config" / "devcontainer.common.json",
+    help="共通設定ファイル",
+)
+@click.option("--debug", is_flag=True, help="デバッグ情報を表示")
+@click.option("--dry-run", is_flag=True, help="設定をマージして表示のみ（実際の起動は行わない）")
+@click.option("--auto-forward-ports", is_flag=True, help="forwardPortsをappPortに自動変換する")
 @click.pass_context
-def rebuild(ctx: click.Context, workspace: Path) -> None:
+def rebuild(
+    ctx: click.Context,
+    gpu: bool,
+    mount: tuple[str, ...],
+    env: tuple[str, ...],
+    port: tuple[str, ...],
+    workspace: Path,
+    common_config: Path,
+    debug: bool,
+    dry_run: bool,
+    auto_forward_ports: bool,
+) -> None:
     """
     コンテナを最初から再ビルドする。
 
     既存のコンテナを削除し、キャッシュを使用せずに
     新しいコンテナをビルドします。
+
+    ⚠️ 非推奨: 代わりに 'dev up --rebuild' を使用してください。
     """
+    console.print(
+        "[bold yellow]⚠️  警告: 'rebuild' コマンドは非推奨です。代わりに 'dev up --rebuild' を使用してください。[/bold yellow]"
+    )
     console.print("[bold yellow]Rebuilding container...[/bold yellow]")
-    # upコマンドを--cleanと--no-cacheオプション付きで呼び出す
-    ctx.invoke(up, clean=True, no_cache=True, workspace=workspace)
+
+    # upコマンドを--rebuildオプション付きで呼び出す（他のオプションも全て渡す）
+    ctx.invoke(
+        up,
+        clean=False,  # --rebuildで自動的に有効になる
+        no_cache=False,  # --rebuildで自動的に有効になる
+        rebuild=True,
+        gpu=gpu,
+        mount=mount,
+        env=env,
+        port=port,
+        workspace=workspace,
+        common_config=common_config,
+        debug=debug,
+        dry_run=dry_run,
+        auto_forward_ports=auto_forward_ports,
+    )
 
 
 @cli.command()

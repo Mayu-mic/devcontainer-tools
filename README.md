@@ -81,6 +81,12 @@ dev up --gpu
 # 既存コンテナを削除してクリーンビルド
 dev up --clean --no-cache
 
+# コンテナを再ビルド（--cleanと--no-cacheを自動適用）
+dev up --rebuild
+
+# 再ビルドと追加オプションを組み合わせ
+dev up --rebuild --port 3000 --mount /host/data:/workspace/data
+
 # 追加マウントとポートフォワードを指定
 dev up --mount /host/data:/workspace/data --port 8080
 
@@ -111,8 +117,11 @@ dev exec python manage.py runserver
 # コンテナの状態確認
 dev status
 
-# コンテナの完全再ビルド
+# コンテナの完全再ビルド（非推奨: dev up --rebuild を推奨）
 dev rebuild
+
+# 推奨: rebuild の代わりに --rebuild オプションを使用
+dev rebuild --port 3000 --mount /host:/container
 ```
 
 ## ⚙️ 設定ファイル
@@ -281,6 +290,7 @@ dev up [OPTIONS]
 **オプション:**
 - `--clean`: 既存のコンテナを削除してから起動
 - `--no-cache`: キャッシュを使用せずにビルド
+- `--rebuild`: コンテナを再ビルドする（`--clean`と`--no-cache`を自動的に適用）
 - `--gpu`: GPU サポートを有効化
 - `--mount TEXT`: 追加マウント（複数指定可）
 - `--env TEXT`: 追加環境変数（複数指定可）
@@ -318,6 +328,8 @@ dev status [OPTIONS]
 
 ### `dev rebuild`
 
+⚠️ **非推奨**: 代わりに `dev up --rebuild` を使用してください。
+
 コンテナを最初から再ビルドします。
 
 ```bash
@@ -325,7 +337,15 @@ dev rebuild [OPTIONS]
 ```
 
 **オプション:**
+- `--gpu`: GPU サポートを有効化
+- `--mount TEXT`: 追加マウント（複数指定可）
+- `--env TEXT`: 追加環境変数（複数指定可）
+- `--port TEXT` / `-p TEXT`: 追加ポートフォワード（複数指定可）
 - `--workspace PATH`: ワークスペースフォルダ
+- `--common-config PATH`: 共通設定ファイル
+- `--debug`: デバッグ情報を表示
+- `--dry-run`: 設定をマージして表示のみ
+- `--auto-forward-ports`: forwardPortsをappPortに自動変換する
 
 ### `dev init`
 
