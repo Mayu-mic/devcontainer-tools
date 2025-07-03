@@ -5,7 +5,11 @@
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from devcontainer_tools.container import execute_in_container
+from devcontainer_tools.container import (
+    ensure_container_running,
+    execute_in_container,
+    run_command,
+)
 
 
 class TestExecuteInContainer:
@@ -100,3 +104,173 @@ class TestExecuteInContainer:
             text=True,
         )
         assert result.returncode == 0
+
+
+class TestRunCommand:
+    """run_command関数のテスト"""
+
+    @patch("subprocess.run")
+    def test_run_command_basic(self, mock_subprocess_run):
+        """基本的なコマンド実行のテスト"""
+        # Arrange
+        cmd = ["echo", "test"]
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "test\n"
+        mock_result.stderr = ""
+        mock_subprocess_run.return_value = mock_result
+
+        # Act
+        result = run_command(cmd)
+
+        # Assert
+        mock_subprocess_run.assert_called_once_with(cmd, check=True, capture_output=True, text=True)
+        assert result.returncode == 0
+
+    @patch("subprocess.run")
+    def test_run_command_with_verbose(self, mock_subprocess_run):
+        """verboseオプション付きのコマンド実行テスト"""
+        # Arrange
+        cmd = ["echo", "test"]
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "test output"
+        mock_result.stderr = "some stderr"
+        mock_subprocess_run.return_value = mock_result
+
+        # Act
+        result = run_command(cmd, verbose=True)
+
+        # Assert
+        mock_subprocess_run.assert_called_once_with(cmd, check=True, capture_output=True, text=True)
+        assert result.returncode == 0
+
+    @patch("subprocess.run")
+    def test_run_command_with_error(self, mock_subprocess_run):
+        """エラー時のコマンド実行テスト"""
+        # Arrange
+        cmd = ["false"]
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stdout = ""
+        mock_result.stderr = "command failed"
+        mock_subprocess_run.return_value = mock_result
+
+        # Act
+        result = run_command(cmd, check=False, verbose=True)
+
+        # Assert
+        mock_subprocess_run.assert_called_once_with(
+            cmd, check=False, capture_output=True, text=True
+        )
+        assert result.returncode == 1
+
+
+class TestEnsureContainerRunning:
+    """ensure_container_running関数のテスト"""
+
+    @patch("devcontainer_tools.container.is_container_running")
+    def test_container_already_running(self, mock_is_running):
+        """コンテナが既に起動している場合のテスト"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        mock_is_running.return_value = True
+
+        # Act
+        result = ensure_container_running(workspace)
+
+        # Assert
+        assert result is True
+        mock_is_running.assert_called_once_with(workspace)
+
+    @patch("devcontainer_tools.container.run_command")
+    @patch("devcontainer_tools.container.is_container_running")
+    def test_container_start_success(self, mock_is_running, mock_run_command):
+        """コンテナの起動が成功する場合のテスト"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        mock_is_running.return_value = False
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_run_command.return_value = mock_result
+
+        # Act
+        result = ensure_container_running(workspace)
+
+        # Assert
+        assert result is True
+        mock_run_command.assert_called_once_with(
+            ["devcontainer", "up", "--workspace-folder", str(workspace)], check=False, verbose=True
+        )
+
+    @patch("devcontainer_tools.container.run_command")
+    @patch("devcontainer_tools.container.is_container_running")
+    def test_container_start_failure_with_stderr(self, mock_is_running, mock_run_command):
+        """コンテナの起動が失敗する場合のテスト（stderrあり）"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        mock_is_running.return_value = False
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "Docker daemon not running"
+        mock_result.stdout = ""
+        mock_run_command.return_value = mock_result
+
+        # Act
+        result = ensure_container_running(workspace)
+
+        # Assert
+        assert result is False
+
+    @patch("devcontainer_tools.container.run_command")
+    @patch("devcontainer_tools.container.is_container_running")
+    def test_container_start_failure_with_stdout_only(self, mock_is_running, mock_run_command):
+        """コンテナの起動が失敗する場合のテスト（stdoutのみ）"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        mock_is_running.return_value = False
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = ""
+        mock_result.stdout = "Error in stdout"
+        mock_run_command.return_value = mock_result
+
+        # Act
+        result = ensure_container_running(workspace)
+
+        # Assert
+        assert result is False
+
+    @patch("devcontainer_tools.container.run_command")
+    @patch("devcontainer_tools.container.is_container_running")
+    def test_container_start_failure_no_output(self, mock_is_running, mock_run_command):
+        """コンテナの起動が失敗する場合のテスト（出力なし）"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        mock_is_running.return_value = False
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = ""
+        mock_result.stdout = ""
+        mock_run_command.return_value = mock_result
+
+        # Act
+        result = ensure_container_running(workspace)
+
+        # Assert
+        assert result is False
+
+    @patch("devcontainer_tools.container.run_command")
+    @patch("devcontainer_tools.container.is_container_running")
+    def test_container_start_exception(self, mock_is_running, mock_run_command):
+        """コンテナの起動中に例外が発生する場合のテスト"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        mock_is_running.return_value = False
+        mock_run_command.side_effect = Exception("Unexpected error")
+
+        # Act
+        result = ensure_container_running(workspace)
+
+        # Assert
+        assert result is False

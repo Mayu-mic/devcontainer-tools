@@ -17,7 +17,11 @@ console = Console()
 
 
 def run_command(
-    cmd: list[str], check: bool = True, capture_output: bool = True, text: bool = True
+    cmd: list[str],
+    check: bool = True,
+    capture_output: bool = True,
+    text: bool = True,
+    verbose: bool = False,
 ) -> subprocess.CompletedProcess[str]:
     """
     コマンドを実行し、結果を返す。
@@ -27,12 +31,26 @@ def run_command(
         check: エラー時に例外を発生させるかどうか
         capture_output: 出力をキャプチャするかどうか
         text: テキストモードで実行するかどうか
+        verbose: 詳細なデバッグ情報を表示するかどうか
 
     Returns:
         コマンドの実行結果
     """
-    console.print(f"[cyan]Executing:[/cyan] {' '.join(cmd)}")
-    return subprocess.run(cmd, check=check, capture_output=capture_output, text=text)
+    console.print(f"[cyan]実行中:[/cyan] {' '.join(cmd)}")
+    result = subprocess.run(cmd, check=check, capture_output=capture_output, text=text)
+
+    if verbose:
+        console.print(f"[dim]デバッグ情報: returncode={result.returncode}[/dim]")
+        if result.stdout:
+            console.print(
+                f"[dim]stdout: {result.stdout[:200]}{'...' if len(result.stdout) > 200 else ''}[/dim]"
+            )
+        if result.stderr:
+            console.print(
+                f"[dim]stderr: {result.stderr[:200]}{'...' if len(result.stderr) > 200 else ''}[/dim]"
+            )
+
+    return result
 
 
 def get_container_id(workspace: Path) -> str | None:
@@ -126,13 +144,22 @@ def ensure_container_running(workspace: Path) -> bool:
     try:
         # devcontainer upを実行
         cmd = ["devcontainer", "up", "--workspace-folder", str(workspace)]
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = run_command(cmd, check=False, verbose=True)
 
         if result.returncode == 0:
             console.print("[bold green]✓ コンテナの自動起動が完了しました[/bold green]")
             return True
         else:
-            console.print(f"[bold red]✗ コンテナの起動に失敗しました: {result.stderr}[/bold red]")
+            # エラーメッセージの詳細な処理
+            error_msg = ""
+            if result.stderr:
+                error_msg = result.stderr.strip()
+            elif result.stdout:
+                error_msg = result.stdout.strip()
+            else:
+                error_msg = f"プロセス終了コード: {result.returncode}"
+
+            console.print(f"[bold red]✗ コンテナの起動に失敗しました: {error_msg}[/bold red]")
             return False
     except Exception as e:
         console.print(f"[bold red]✗ コンテナの起動中にエラーが発生しました: {e}[/bold red]")
@@ -153,10 +180,15 @@ def stop_and_remove_container(container_id: str, remove_volumes: bool = False) -
     try:
         # コンテナを停止
         console.print(f"[yellow]コンテナを停止しています... (ID: {container_id[:12]})[/yellow]")
-        result = run_command(["docker", "stop", container_id], check=False)
+        result = run_command(["docker", "stop", container_id], check=False, verbose=True)
 
         if result.returncode != 0:
-            console.print(f"[red]コンテナの停止に失敗しました: {result.stderr}[/red]")
+            error_msg = (
+                result.stderr.strip()
+                if result.stderr
+                else f"プロセス終了コード: {result.returncode}"
+            )
+            console.print(f"[red]コンテナの停止に失敗しました: {error_msg}[/red]")
             return False
 
         # コンテナを削除
@@ -165,10 +197,15 @@ def stop_and_remove_container(container_id: str, remove_volumes: bool = False) -
         if remove_volumes:
             cmd.append("-v")  # ボリュームも削除
 
-        result = run_command(cmd, check=False)
+        result = run_command(cmd, check=False, verbose=True)
 
         if result.returncode != 0:
-            console.print(f"[red]コンテナの削除に失敗しました: {result.stderr}[/red]")
+            error_msg = (
+                result.stderr.strip()
+                if result.stderr
+                else f"プロセス終了コード: {result.returncode}"
+            )
+            console.print(f"[red]コンテナの削除に失敗しました: {error_msg}[/red]")
             return False
 
         console.print("[green]✓ コンテナの停止・削除が完了しました[/green]")
