@@ -16,6 +16,42 @@ from rich.console import Console
 console = Console()
 
 
+def _truncate_output(output: str, max_length: int = 200) -> str:
+    """
+    長い出力を切り詰めて表示用に整形する。
+
+    Args:
+        output: 元の出力文字列
+        max_length: 最大文字数
+
+    Returns:
+        切り詰められた文字列
+    """
+    if len(output) > max_length:
+        return f"{output[:max_length]}..."
+    return output
+
+
+def _get_error_message(result: subprocess.CompletedProcess[str]) -> str:
+    """
+    プロセス実行結果からエラーメッセージを構築する。
+
+    優先順位: stderr → stdout → 終了コード
+
+    Args:
+        result: subprocess.CompletedProcessオブジェクト
+
+    Returns:
+        エラーメッセージ文字列
+    """
+    if result.stderr:
+        return result.stderr.strip()
+    elif result.stdout:
+        return result.stdout.strip()
+    else:
+        return f"プロセス終了コード: {result.returncode}"
+
+
 def run_command(
     cmd: list[str],
     check: bool = True,
@@ -42,13 +78,9 @@ def run_command(
     if verbose:
         console.print(f"[dim]デバッグ情報: returncode={result.returncode}[/dim]")
         if result.stdout:
-            console.print(
-                f"[dim]stdout: {result.stdout[:200]}{'...' if len(result.stdout) > 200 else ''}[/dim]"
-            )
+            console.print(f"[dim]stdout: {_truncate_output(result.stdout)}[/dim]")
         if result.stderr:
-            console.print(
-                f"[dim]stderr: {result.stderr[:200]}{'...' if len(result.stderr) > 200 else ''}[/dim]"
-            )
+            console.print(f"[dim]stderr: {_truncate_output(result.stderr)}[/dim]")
 
     return result
 
@@ -150,15 +182,7 @@ def ensure_container_running(workspace: Path) -> bool:
             console.print("[bold green]✓ コンテナの自動起動が完了しました[/bold green]")
             return True
         else:
-            # エラーメッセージの詳細な処理
-            error_msg = ""
-            if result.stderr:
-                error_msg = result.stderr.strip()
-            elif result.stdout:
-                error_msg = result.stdout.strip()
-            else:
-                error_msg = f"プロセス終了コード: {result.returncode}"
-
+            error_msg = _get_error_message(result)
             console.print(f"[bold red]✗ コンテナの起動に失敗しました: {error_msg}[/bold red]")
             return False
     except Exception as e:
@@ -183,11 +207,7 @@ def stop_and_remove_container(container_id: str, remove_volumes: bool = False) -
         result = run_command(["docker", "stop", container_id], check=False, verbose=True)
 
         if result.returncode != 0:
-            error_msg = (
-                result.stderr.strip()
-                if result.stderr
-                else f"プロセス終了コード: {result.returncode}"
-            )
+            error_msg = _get_error_message(result)
             console.print(f"[red]コンテナの停止に失敗しました: {error_msg}[/red]")
             return False
 
@@ -200,11 +220,7 @@ def stop_and_remove_container(container_id: str, remove_volumes: bool = False) -
         result = run_command(cmd, check=False, verbose=True)
 
         if result.returncode != 0:
-            error_msg = (
-                result.stderr.strip()
-                if result.stderr
-                else f"プロセス終了コード: {result.returncode}"
-            )
+            error_msg = _get_error_message(result)
             console.print(f"[red]コンテナの削除に失敗しました: {error_msg}[/red]")
             return False
 
