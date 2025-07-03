@@ -136,11 +136,8 @@ dev up --auto-forward-ports  # forwardPortsがappPortに変換される
 # 基本起動
 dev up
 
-# リビルド付き起動
+# リビルド付き起動（--cleanと--no-cacheを自動適用）
 dev up --rebuild
-
-# 完全な再ビルド（キャッシュなし） - --rebuildで自動的に有効
-dev up --rebuild --no-cache
 
 # オプションと組み合わせ可能
 dev up --rebuild --port 3000:3000 --mount ./data:/app/data --env NODE_ENV=dev
