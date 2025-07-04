@@ -10,7 +10,10 @@ from devcontainer_tools.container import (
     _truncate_output,
     ensure_container_running,
     execute_in_container,
+    get_compose_containers,
+    is_compose_project,
     run_command,
+    stop_and_remove_compose_containers,
 )
 
 
@@ -339,3 +342,207 @@ class TestHelperFunctions:
 
         error_msg = _get_error_message(result)
         assert error_msg == "error with spaces"
+
+
+class TestDockerComposeSupport:
+    """Docker Compose対応のテスト"""
+
+    def test_is_compose_project_with_compose_file(self):
+        """docker-compose.ymlがある場合のテスト"""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create docker-compose.yml
+            docker_compose_file = workspace / "docker-compose.yml"
+            docker_compose_file.write_text(
+                "version: '3.8'\nservices:\n  app:\n    build: .\n    ports:\n      - 3000:3000"
+            )
+            # Create devcontainer.json with dockerComposeFile
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text(
+                '{"name": "test", "dockerComposeFile": "../docker-compose.yml", "service": "app"}'
+            )
+
+            result = is_compose_project(workspace)
+            assert result is True
+
+    def test_is_compose_project_without_compose_file(self):
+        """docker-compose.ymlがない場合のテスト"""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create only devcontainer.json without dockerComposeFile
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text('{"name": "test", "image": "ubuntu:20.04"}')
+
+            result = is_compose_project(workspace)
+            assert result is False
+
+    def test_is_compose_project_no_devcontainer_json(self):
+        """devcontainer.jsonがない場合のテスト"""
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            result = is_compose_project(workspace)
+            assert result is False
+
+    @patch("devcontainer_tools.utils.detect_compose_config")
+    @patch("devcontainer_tools.container.run_command")
+    def test_get_compose_containers_success(self, mock_run_command, mock_detect_compose):
+        """compose コンテナ取得成功のテスト"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        compose_file = Path("/test/workspace/docker-compose.yml")
+        mock_detect_compose.return_value = {"compose_file": compose_file}
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "container1\ncontainer2\ncontainer3\n"
+        mock_run_command.return_value = mock_result
+
+        # Act
+        containers = get_compose_containers(workspace)
+
+        # Assert
+        assert containers == ["container1", "container2", "container3"]
+        mock_run_command.assert_called_once_with(
+            ["docker", "compose", "-f", str(compose_file), "ps", "-q"], check=False
+        )
+
+    @patch("devcontainer_tools.utils.detect_compose_config")
+    @patch("devcontainer_tools.container.run_command")
+    def test_get_compose_containers_failure(self, mock_run_command, mock_detect_compose):
+        """compose コンテナ取得失敗のテスト"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        compose_file = Path("/test/workspace/docker-compose.yml")
+        mock_detect_compose.return_value = {"compose_file": compose_file}
+
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stdout = ""
+        mock_run_command.return_value = mock_result
+
+        # Act
+        containers = get_compose_containers(workspace)
+
+        # Assert
+        assert containers == []
+        mock_run_command.assert_called_once_with(
+            ["docker", "compose", "-f", str(compose_file), "ps", "-q"], check=False
+        )
+
+    @patch("devcontainer_tools.utils.detect_compose_config")
+    @patch("devcontainer_tools.container.run_command")
+    def test_get_compose_containers_empty(self, mock_run_command, mock_detect_compose):
+        """compose コンテナが空の場合のテスト"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        compose_file = Path("/test/workspace/docker-compose.yml")
+        mock_detect_compose.return_value = {"compose_file": compose_file}
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+        mock_run_command.return_value = mock_result
+
+        # Act
+        containers = get_compose_containers(workspace)
+
+        # Assert
+        assert containers == []
+        mock_run_command.assert_called_once_with(
+            ["docker", "compose", "-f", str(compose_file), "ps", "-q"], check=False
+        )
+
+    @patch("devcontainer_tools.utils.detect_compose_config")
+    @patch("devcontainer_tools.container.run_command")
+    def test_stop_and_remove_compose_containers_success(
+        self, mock_run_command, mock_detect_compose
+    ):
+        """compose コンテナ停止・削除成功のテスト"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        compose_file = Path("/test/workspace/docker-compose.yml")
+        mock_detect_compose.return_value = {"compose_file": compose_file}
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_run_command.return_value = mock_result
+
+        # Act
+        result = stop_and_remove_compose_containers(workspace, remove_volumes=False)
+
+        # Assert
+        assert result is True
+        mock_run_command.assert_called_once_with(
+            ["docker", "compose", "-f", str(compose_file), "down"], check=False, verbose=True
+        )
+
+    @patch("devcontainer_tools.utils.detect_compose_config")
+    @patch("devcontainer_tools.container.run_command")
+    def test_stop_and_remove_compose_containers_with_volumes(
+        self, mock_run_command, mock_detect_compose
+    ):
+        """compose コンテナ停止・削除（ボリューム付き）のテスト"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        compose_file = Path("/test/workspace/docker-compose.yml")
+        mock_detect_compose.return_value = {"compose_file": compose_file}
+
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_run_command.return_value = mock_result
+
+        # Act
+        result = stop_and_remove_compose_containers(workspace, remove_volumes=True)
+
+        # Assert
+        assert result is True
+        mock_run_command.assert_called_once_with(
+            ["docker", "compose", "-f", str(compose_file), "down", "-v"], check=False, verbose=True
+        )
+
+    @patch("devcontainer_tools.utils.detect_compose_config")
+    @patch("devcontainer_tools.container.run_command")
+    def test_stop_and_remove_compose_containers_failure(
+        self, mock_run_command, mock_detect_compose
+    ):
+        """compose コンテナ停止・削除失敗のテスト"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        compose_file = Path("/test/workspace/docker-compose.yml")
+        mock_detect_compose.return_value = {"compose_file": compose_file}
+
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stderr = "Docker compose down failed"
+        mock_run_command.return_value = mock_result
+
+        # Act
+        result = stop_and_remove_compose_containers(workspace, remove_volumes=False)
+
+        # Assert
+        assert result is False
+        mock_run_command.assert_called_once_with(
+            ["docker", "compose", "-f", str(compose_file), "down"], check=False, verbose=True
+        )
+
+    @patch("devcontainer_tools.utils.detect_compose_config")
+    def test_stop_and_remove_compose_containers_exception(self, mock_detect_compose):
+        """compose コンテナ停止・削除中に例外が発生するテスト"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        mock_detect_compose.side_effect = Exception("Unexpected error")
+
+        # Act
+        result = stop_and_remove_compose_containers(workspace, remove_volumes=False)
+
+        # Assert
+        assert result is False

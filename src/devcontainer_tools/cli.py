@@ -25,6 +25,8 @@ from .container import (
     execute_in_container,
     get_container_id,
     get_container_info,
+    is_compose_project,
+    stop_and_remove_compose_containers,
     stop_and_remove_container,
 )
 from .utils import find_devcontainer_json, save_json_file
@@ -371,24 +373,43 @@ def down(workspace: Path, volumes: bool) -> None:
     """
     開発コンテナを停止・削除する。
 
-    実行中のdevcontainerを停止し、削除します。
+    docker-composeプロジェクトの場合はすべてのコンテナを一括停止・削除し、
+    単一コンテナの場合は個別に停止・削除します。
     --volumesオプションでボリュームも削除可能です。
     """
     console.print("[bold red]Stopping devcontainer...[/bold red]")
 
-    # コンテナが実行中かチェック
-    container_id = get_container_id(workspace)
+    # docker-composeプロジェクトかどうかを判定
+    if is_compose_project(workspace):
+        console.print(
+            "[cyan]docker-composeプロジェクトを検出しました。すべてのコンテナを停止・削除します。[/cyan]"
+        )
 
-    if not container_id:
-        console.print("[yellow]実行中のコンテナが見つかりません。[/yellow]")
-        return
+        # docker-composeプロジェクトのすべてのコンテナを停止・削除
+        success = stop_and_remove_compose_containers(workspace, remove_volumes=volumes)
 
-    # コンテナを停止・削除
-    success = stop_and_remove_container(container_id, remove_volumes=volumes)
+        if not success:
+            console.print(
+                "[bold red]✗ docker-composeプロジェクトの停止・削除に失敗しました[/bold red]"
+            )
+            sys.exit(1)
+    else:
+        # 単一コンテナの場合
+        console.print("[cyan]単一コンテナの停止・削除を実行します。[/cyan]")
 
-    if not success:
-        console.print("[bold red]✗ コンテナの停止・削除に失敗しました[/bold red]")
-        sys.exit(1)
+        # コンテナが実行中かチェック
+        container_id = get_container_id(workspace)
+
+        if not container_id:
+            console.print("[yellow]実行中のコンテナが見つかりません。[/yellow]")
+            return
+
+        # コンテナを停止・削除
+        success = stop_and_remove_container(container_id, remove_volumes=volumes)
+
+        if not success:
+            console.print("[bold red]✗ コンテナの停止・削除に失敗しました[/bold red]")
+            sys.exit(1)
 
 
 @cli.command()

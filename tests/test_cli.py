@@ -792,6 +792,107 @@ class TestCliDown:
             )
 
     @patch("devcontainer_tools.container.run_command")
+    def test_down_with_docker_compose(self, mock_run_command):
+        """Test down command with docker-compose project."""
+        runner = CliRunner()
+
+        # Mock docker-compose scenario
+        from types import SimpleNamespace
+
+        def mock_run_command_side_effect(cmd, **kwargs):
+            if cmd[0] == "docker" and cmd[1] == "ps":
+                # 単一コンテナの場合
+                return SimpleNamespace(returncode=0, stdout="mock_container_id\n", stderr="")
+            elif cmd[0] == "docker" and "compose" in cmd:
+                # docker-composeコマンドの場合
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        mock_run_command.side_effect = mock_run_command_side_effect
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create docker-compose.yml
+            docker_compose_file = workspace / "docker-compose.yml"
+            docker_compose_file.write_text(
+                "version: '3.8'\nservices:\n  app:\n    build: .\n    ports:\n      - 3000:3000"
+            )
+            # Create devcontainer.json with dockerComposeFile
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text(
+                '{"name": "test", "dockerComposeFile": "../docker-compose.yml", "service": "app"}'
+            )
+
+            result = runner.invoke(cli, ["down", "--workspace", str(workspace)])
+
+            assert result.exit_code == 0
+            # docker-composeを使用する場合は、compose用のコマンドが呼ばれることを確認
+            compose_calls = [
+                call for call in mock_run_command.call_args_list if "compose" in str(call)
+            ]
+            # 修正後は compose down コマンドが呼ばれる
+            assert len(compose_calls) > 0
+            # -f オプションでファイルが指定されることを確認
+            compose_down_calls = [
+                call
+                for call in mock_run_command.call_args_list
+                if "compose" in str(call) and "down" in str(call)
+            ]
+            assert len(compose_down_calls) > 0
+
+    @patch("devcontainer_tools.container.run_command")
+    def test_down_compose_multiple_containers(self, mock_run_command):
+        """Test down command with multiple containers from docker-compose."""
+        runner = CliRunner()
+
+        # Mock multiple containers scenario
+        from types import SimpleNamespace
+
+        def mock_run_command_side_effect(cmd, **kwargs):
+            if cmd[0] == "docker" and cmd[1] == "ps":
+                # 複数コンテナのシナリオ
+                return SimpleNamespace(
+                    returncode=0, stdout="container1\ncontainer2\ncontainer3\n", stderr=""
+                )
+            elif cmd[0] == "docker" and "compose" in cmd:
+                # docker-composeコマンドの場合
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        mock_run_command.side_effect = mock_run_command_side_effect
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+            # Create docker-compose.yml with multiple services
+            docker_compose_file = workspace / "docker-compose.yml"
+            docker_compose_file.write_text(
+                "version: '3.8'\nservices:\n  app:\n    build: .\n  db:\n    image: postgres\n  redis:\n    image: redis"
+            )
+            # Create devcontainer.json with dockerComposeFile
+            devcontainer_path = workspace / ".devcontainer" / "devcontainer.json"
+            devcontainer_path.parent.mkdir(parents=True, exist_ok=True)
+            devcontainer_path.write_text(
+                '{"name": "test", "dockerComposeFile": "../docker-compose.yml", "service": "app"}'
+            )
+
+            result = runner.invoke(cli, ["down", "--workspace", str(workspace)])
+
+            assert result.exit_code == 0
+            # 修正後は compose down コマンドが使用される
+            compose_calls = [
+                call for call in mock_run_command.call_args_list if "compose" in str(call)
+            ]
+            assert len(compose_calls) > 0
+            # 複数コンテナの場合でも compose down が呼ばれる
+            compose_down_calls = [
+                call
+                for call in mock_run_command.call_args_list
+                if "compose" in str(call) and "down" in str(call)
+            ]
+            assert len(compose_down_calls) > 0
+
+    @patch("devcontainer_tools.container.run_command")
     def test_down_with_volumes_option(self, mock_run_command):
         """Test down command with --volumes option."""
         runner = CliRunner()

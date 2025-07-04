@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 from devcontainer_tools.utils import (
+    detect_compose_config,
     find_devcontainer_json,
     load_json_file,
     parse_mount_string,
@@ -192,3 +193,165 @@ class TestSaveJsonFile:
 
         result = save_json_file(test_data, readonly_path)
         assert result is False
+
+
+class TestDetectComposeConfig:
+    """Test the detect_compose_config function."""
+
+    def test_detect_compose_with_dockerComposeFile(self):
+        """Test detecting compose config with dockerComposeFile in devcontainer.json."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            # Create devcontainer.json with dockerComposeFile
+            devcontainer_dir = workspace / ".devcontainer"
+            devcontainer_dir.mkdir()
+            config_file = devcontainer_dir / "devcontainer.json"
+            config_file.write_text(
+                '\n{\n  "name": "test",\n  "dockerComposeFile": "../docker-compose.yml",\n  "service": "app"\n}'
+            )
+
+            # Create docker-compose.yml
+            compose_file = workspace / "docker-compose.yml"
+            compose_file.write_text(
+                "version: '3.8'\nservices:\n  app:\n    build: .\n    ports:\n      - 3000:3000\n  db:\n    image: postgres:13"
+            )
+
+            result = detect_compose_config(workspace)
+            assert result is not None
+            assert result["compose_file"].resolve() == compose_file.resolve()
+            assert result["devcontainer_config"]["dockerComposeFile"] == "../docker-compose.yml"
+            assert result["devcontainer_config"]["service"] == "app"
+
+    def test_detect_compose_with_dockerComposeFile_array(self):
+        """Test detecting compose config with dockerComposeFile as array."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            # Create devcontainer.json with dockerComposeFile as array
+            devcontainer_dir = workspace / ".devcontainer"
+            devcontainer_dir.mkdir()
+            config_file = devcontainer_dir / "devcontainer.json"
+            config_file.write_text(
+                '{\n  "name": "test",\n  "dockerComposeFile": ["../docker-compose.yml", "../docker-compose.override.yml"],\n  "service": "app"\n}'
+            )
+
+            # Create docker-compose files
+            compose_file = workspace / "docker-compose.yml"
+            compose_file.write_text("version: '3.8'\nservices:\n  app:\n    build: .")
+            compose_override = workspace / "docker-compose.override.yml"
+            compose_override.write_text(
+                "version: '3.8'\nservices:\n  app:\n    ports:\n      - 3000:3000"
+            )
+
+            result = detect_compose_config(workspace)
+            assert result is not None
+            assert (
+                result["compose_file"].resolve() == compose_file.resolve()
+            )  # First file in the array
+            assert result["devcontainer_config"]["dockerComposeFile"] == [
+                "../docker-compose.yml",
+                "../docker-compose.override.yml",
+            ]
+            assert result["devcontainer_config"]["service"] == "app"
+
+    def test_detect_compose_without_dockerComposeFile(self):
+        """Test detecting compose config without dockerComposeFile in devcontainer.json."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            # Create devcontainer.json without dockerComposeFile
+            devcontainer_dir = workspace / ".devcontainer"
+            devcontainer_dir.mkdir()
+            config_file = devcontainer_dir / "devcontainer.json"
+            config_file.write_text('{\n  "name": "test",\n  "image": "ubuntu:20.04"\n}')
+
+            result = detect_compose_config(workspace)
+            assert result is None
+
+    def test_detect_compose_nonexistent_compose_file(self):
+        """Test detecting compose config when compose file doesn't exist."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            # Create devcontainer.json with dockerComposeFile but no actual compose file
+            devcontainer_dir = workspace / ".devcontainer"
+            devcontainer_dir.mkdir()
+            config_file = devcontainer_dir / "devcontainer.json"
+            config_file.write_text(
+                '{\n  "name": "test",\n  "dockerComposeFile": "../docker-compose.yml",\n  "service": "app"\n}'
+            )
+
+            # Don't create docker-compose.yml
+
+            result = detect_compose_config(workspace)
+            assert result is None
+
+    def test_detect_compose_no_devcontainer_json(self):
+        """Test detecting compose config when devcontainer.json doesn't exist."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            result = detect_compose_config(workspace)
+            assert result is None
+
+    def test_detect_compose_with_relative_path(self):
+        """Test detecting compose config with various relative paths."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            # Create nested directory structure within workspace
+            nested_dir = workspace / "nested"
+            nested_dir.mkdir()
+            devcontainer_dir = nested_dir / ".devcontainer"
+            devcontainer_dir.mkdir()
+
+            # Create devcontainer.json with relative path to compose file within workspace
+            config_file = devcontainer_dir / "devcontainer.json"
+            config_file.write_text(
+                '{\n  "name": "test",\n  "dockerComposeFile": "../docker-compose.yml",\n  "service": "app"\n}'
+            )
+
+            # Create docker-compose.yml in nested directory (within workspace)
+            compose_file = nested_dir / "docker-compose.yml"
+            compose_file.write_text("version: '3.8'\nservices:\n  app:\n    build: .")
+
+            result = detect_compose_config(nested_dir)
+            assert result is not None
+            assert result["compose_file"].resolve() == compose_file.resolve()
+            assert result["devcontainer_config"]["dockerComposeFile"] == "../docker-compose.yml"
+
+    def test_detect_compose_with_absolute_path(self):
+        """Test detecting compose config with absolute path (should be rejected)."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            # Create devcontainer.json with absolute path
+            devcontainer_dir = workspace / ".devcontainer"
+            devcontainer_dir.mkdir()
+            config_file = devcontainer_dir / "devcontainer.json"
+            config_file.write_text(
+                f'{{\n  "name": "test",\n  "dockerComposeFile": "{workspace}/docker-compose.yml",\n  "service": "app"\n}}'
+            )
+
+            # Create docker-compose.yml
+            compose_file = workspace / "docker-compose.yml"
+            compose_file.write_text("version: '3.8'\nservices:\n  app:\n    build: .")
+
+            result = detect_compose_config(workspace)
+            # セキュリティ上の理由で絶対パスは拒否される
+            assert result is None
+
+    def test_detect_compose_invalid_json(self):
+        """Test detecting compose config with invalid devcontainer.json."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            workspace = Path(temp_dir)
+
+            # Create invalid devcontainer.json
+            devcontainer_dir = workspace / ".devcontainer"
+            devcontainer_dir.mkdir()
+            config_file = devcontainer_dir / "devcontainer.json"
+            config_file.write_text("{ invalid json content }")
+
+            result = detect_compose_config(workspace)
+            assert result is None

@@ -123,3 +123,96 @@ def save_json_file(data: dict[str, Any], file_path: Path, indent: int = 2) -> bo
     except Exception as e:
         console.print(f"[red]Error: Could not save {file_path}: {e}[/red]")
         return False
+
+
+def detect_compose_config(workspace: Path) -> dict[str, Any] | None:
+    """
+    docker-compose設定を検出する。
+
+    devcontainer.jsonからdockerComposeFileを検索し、
+    対応するdocker-compose.ymlファイルの存在を確認する。
+
+    Args:
+        workspace: ワークスペースのパス
+
+    Returns:
+        compose設定の辞書（compose_fileとdevcontainer_configを含む）、
+        見つからない場合はNone
+    """
+    try:
+        # devcontainer.jsonを検索
+        devcontainer_path = find_devcontainer_json(workspace)
+        if not devcontainer_path:
+            return None
+
+        # devcontainer.jsonを読み込み
+        config = load_json_file(devcontainer_path)
+        if not config:
+            return None
+
+        # dockerComposeFileの設定をチェック
+        docker_compose_file = config.get("dockerComposeFile")
+        if not docker_compose_file:
+            return None
+
+        # dockerComposeFileが配列の場合は最初の要素を使用
+        if isinstance(docker_compose_file, list):
+            if not docker_compose_file:
+                return None
+            docker_compose_file = docker_compose_file[0]
+
+        # セキュリティチェック: 絶対パスは拒否
+        if Path(docker_compose_file).is_absolute():
+            console.print(
+                f"[yellow]Warning: Absolute path in dockerComposeFile is not allowed: {docker_compose_file}[/yellow]"
+            )
+            return None
+
+        # devcontainer.jsonからの相対パスでcompose ファイルを解決
+        devcontainer_dir = devcontainer_path.parent
+        compose_file_path = (devcontainer_dir / docker_compose_file).resolve()
+
+        # セキュリティチェック: ワークスペース外のファイルは拒否
+        try:
+            compose_file_path.relative_to(workspace.resolve())
+        except ValueError:
+            console.print(
+                f"[yellow]Warning: Compose file outside workspace is not allowed: {compose_file_path}[/yellow]"
+            )
+            return None
+
+        # compose ファイルの存在確認
+        if not compose_file_path.exists():
+            return None
+
+        return {
+            "compose_file": compose_file_path,
+            "devcontainer_config": config,
+        }
+    except Exception as e:
+        console.print(f"[yellow]Warning: Could not detect compose config: {e}[/yellow]")
+        return None
+
+
+def get_compose_project_name(workspace: Path, compose_config: dict[str, Any] | None = None) -> str:
+    """
+    docker-composeプロジェクト名を取得する。
+
+    Args:
+        workspace: ワークスペースのパス
+        compose_config: compose設定（detect_compose_configの結果）
+
+    Returns:
+        プロジェクト名（通常はディレクトリ名）
+    """
+    if compose_config and "devcontainer_config" in compose_config:
+        # devcontainer.jsonにプロジェクト名が指定されている場合
+        project_name = compose_config["devcontainer_config"].get("name")
+        if project_name:
+            # プロジェクト名を正規化（docker-composeの命名規則に従う）
+            import re
+
+            return re.sub(r"[^a-z0-9_-]", "", project_name.lower())
+
+    # デフォルトはワークスペースのディレクトリ名
+    return workspace.name.lower()
