@@ -219,7 +219,7 @@ class TestDetectComposeConfig:
 
             result = detect_compose_config(workspace)
             assert result is not None
-            assert result["compose_file"] == compose_file
+            assert result["compose_file"].resolve() == compose_file.resolve()
             assert result["devcontainer_config"]["dockerComposeFile"] == "../docker-compose.yml"
             assert result["devcontainer_config"]["service"] == "app"
 
@@ -246,7 +246,9 @@ class TestDetectComposeConfig:
 
             result = detect_compose_config(workspace)
             assert result is not None
-            assert result["compose_file"] == compose_file  # First file in the array
+            assert (
+                result["compose_file"].resolve() == compose_file.resolve()
+            )  # First file in the array
             assert result["devcontainer_config"]["dockerComposeFile"] == [
                 "../docker-compose.yml",
                 "../docker-compose.override.yml",
@@ -298,26 +300,26 @@ class TestDetectComposeConfig:
         with tempfile.TemporaryDirectory() as temp_dir:
             workspace = Path(temp_dir)
 
-            # Create nested directory structure
+            # Create nested directory structure within workspace
             nested_dir = workspace / "nested"
             nested_dir.mkdir()
             devcontainer_dir = nested_dir / ".devcontainer"
             devcontainer_dir.mkdir()
 
-            # Create devcontainer.json with relative path to compose file
+            # Create devcontainer.json with relative path to compose file within workspace
             config_file = devcontainer_dir / "devcontainer.json"
             config_file.write_text(
-                '{\n  "name": "test",\n  "dockerComposeFile": "../../docker-compose.yml",\n  "service": "app"\n}'
+                '{\n  "name": "test",\n  "dockerComposeFile": "../docker-compose.yml",\n  "service": "app"\n}'
             )
 
-            # Create docker-compose.yml at workspace root
-            compose_file = workspace / "docker-compose.yml"
+            # Create docker-compose.yml in nested directory (within workspace)
+            compose_file = nested_dir / "docker-compose.yml"
             compose_file.write_text("version: '3.8'\nservices:\n  app:\n    build: .")
 
             result = detect_compose_config(nested_dir)
             assert result is not None
-            assert result["compose_file"] == compose_file
-            assert result["devcontainer_config"]["dockerComposeFile"] == "../../docker-compose.yml"
+            assert result["compose_file"].resolve() == compose_file.resolve()
+            assert result["devcontainer_config"]["dockerComposeFile"] == "../docker-compose.yml"
 
     def test_detect_compose_with_absolute_path(self):
         """Test detecting compose config with absolute path (should be rejected)."""

@@ -290,9 +290,18 @@ def get_compose_containers(workspace: Path) -> list[str]:
         コンテナIDのリスト
     """
     try:
-        # docker compose ps -q で実行中のコンテナ一覧を取得
+        from .utils import detect_compose_config
+
+        # compose設定を取得
+        compose_config = detect_compose_config(workspace)
+        if not compose_config:
+            return []
+
+        compose_file = compose_config["compose_file"]
+
+        # -f オプションでcompose ファイルを明示指定してコンテナ一覧を取得
         result = run_command(
-            ["docker", "compose", "ps", "-q"],
+            ["docker", "compose", "-f", str(compose_file), "ps", "-q"],
             check=False,
         )
 
@@ -320,10 +329,19 @@ def stop_and_remove_compose_containers(workspace: Path, remove_volumes: bool = F
         成功した場合True、失敗した場合False
     """
     try:
+        from .utils import detect_compose_config
+
+        # compose設定を取得
+        compose_config = detect_compose_config(workspace)
+        if not compose_config:
+            console.print("[red]docker-compose設定が見つかりません[/red]")
+            return False
+
+        compose_file = compose_config["compose_file"]
         console.print("[yellow]docker-composeプロジェクトを停止・削除しています...[/yellow]")
 
-        # docker compose down ですべてのコンテナを停止・削除
-        cmd = ["docker", "compose", "down"]
+        # -f オプションでcompose ファイルを明示指定
+        cmd = ["docker", "compose", "-f", str(compose_file), "down"]
         if remove_volumes:
             cmd.append("-v")  # ボリュームも削除
 
@@ -374,8 +392,9 @@ def get_compose_container_id(workspace: Path, service_name: str | None = None) -
                 return containers[0] if containers else None
 
         # 指定されたサービスのコンテナIDを取得
+        compose_file = compose_config["compose_file"]
         result = run_command(
-            ["docker", "compose", "ps", "-q", service_name],
+            ["docker", "compose", "-f", str(compose_file), "ps", "-q", service_name],
             check=False,
         )
 

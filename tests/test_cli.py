@@ -831,9 +831,15 @@ class TestCliDown:
             compose_calls = [
                 call for call in mock_run_command.call_args_list if "compose" in str(call)
             ]
-            # 現在の実装では単一コンテナのみ処理するため、compose用のコマンドは呼ばれない
-            # これはこの問題を修正するためのテストケース
-            assert len(compose_calls) == 0  # 修正後は > 0 になる予定
+            # 修正後は compose down コマンドが呼ばれる
+            assert len(compose_calls) > 0
+            # -f オプションでファイルが指定されることを確認
+            compose_down_calls = [
+                call
+                for call in mock_run_command.call_args_list
+                if "compose" in str(call) and "down" in str(call)
+            ]
+            assert len(compose_down_calls) > 0
 
     @patch("devcontainer_tools.container.run_command")
     def test_down_compose_multiple_containers(self, mock_run_command):
@@ -873,15 +879,18 @@ class TestCliDown:
             result = runner.invoke(cli, ["down", "--workspace", str(workspace)])
 
             assert result.exit_code == 0
-            # 現在の実装では単一コンテナのみ処理するため、複数コンテナは削除されない
-            # これはこの問題を修正するためのテストケース
-            single_container_calls = [
+            # 修正後は compose down コマンドが使用される
+            compose_calls = [
+                call for call in mock_run_command.call_args_list if "compose" in str(call)
+            ]
+            assert len(compose_calls) > 0
+            # 複数コンテナの場合でも compose down が呼ばれる
+            compose_down_calls = [
                 call
                 for call in mock_run_command.call_args_list
-                if "docker" in str(call) and "stop" in str(call)
+                if "compose" in str(call) and "down" in str(call)
             ]
-            # 修正後は、compose用のコマンドが使用されるべき
-            assert len(single_container_calls) > 0  # 現在は単一コンテナのみ処理
+            assert len(compose_down_calls) > 0
 
     @patch("devcontainer_tools.container.run_command")
     def test_down_with_volumes_option(self, mock_run_command):
