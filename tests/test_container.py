@@ -481,9 +481,8 @@ class TestDockerComposeSupport:
 
         # Assert
         assert result is True
-        mock_run_command.assert_called_once_with(
-            ["docker", "compose", "-f", str(compose_file), "down"], check=False, verbose=True
-        )
+        # 2回呼び出される（通常のコマンドとdevcontainerプロジェクト名付きのコマンド）
+        assert mock_run_command.call_count == 2
 
     @patch("devcontainer_tools.utils.detect_compose_config")
     @patch("devcontainer_tools.container.run_command")
@@ -505,9 +504,8 @@ class TestDockerComposeSupport:
 
         # Assert
         assert result is True
-        mock_run_command.assert_called_once_with(
-            ["docker", "compose", "-f", str(compose_file), "down", "-v"], check=False, verbose=True
-        )
+        # 2回呼び出される（通常のコマンドとdevcontainerプロジェクト名付きのコマンド）
+        assert mock_run_command.call_count == 2
 
     @patch("devcontainer_tools.utils.detect_compose_config")
     @patch("devcontainer_tools.container.run_command")
@@ -520,6 +518,7 @@ class TestDockerComposeSupport:
         compose_file = Path("/test/workspace/docker-compose.yml")
         mock_detect_compose.return_value = {"compose_file": compose_file}
 
+        # 両方のコマンドが失敗する場合
         mock_result = MagicMock()
         mock_result.returncode = 1
         mock_result.stderr = "Docker compose down failed"
@@ -530,9 +529,8 @@ class TestDockerComposeSupport:
 
         # Assert
         assert result is False
-        mock_run_command.assert_called_once_with(
-            ["docker", "compose", "-f", str(compose_file), "down"], check=False, verbose=True
-        )
+        # 2回呼び出される（通常のコマンドとdevcontainerプロジェクト名付きのコマンド）
+        assert mock_run_command.call_count == 2
 
     @patch("devcontainer_tools.utils.detect_compose_config")
     def test_stop_and_remove_compose_containers_exception(self, mock_detect_compose):

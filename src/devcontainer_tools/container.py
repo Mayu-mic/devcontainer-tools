@@ -347,6 +347,8 @@ def stop_and_remove_compose_containers(workspace: Path, remove_volumes: bool = F
     """
     docker-composeプロジェクトのすべてのコンテナを停止・削除する。
 
+    devcontainer CLIが使用するプロジェクト名も考慮して停止・削除する。
+
     Args:
         workspace: ワークスペースのパス
         remove_volumes: 関連するボリュームも削除するかどうか
@@ -366,22 +368,46 @@ def stop_and_remove_compose_containers(workspace: Path, remove_volumes: bool = F
         compose_file = compose_config["compose_file"]
         console.print("[yellow]docker-composeプロジェクトを停止・削除しています...[/yellow]")
 
-        # -f オプションでcompose ファイルを明示指定
+        # 両方のプロジェクト名で停止を試行（どちらも実行してすべてのコンテナを確実に停止）
+        success = False
+
+        # 1. 通常のdocker composeコマンドを試行
         cmd = ["docker", "compose", "-f", str(compose_file), "down"]
         if remove_volumes:
             cmd.append("-v")  # ボリュームも削除
 
         result = run_command(cmd, check=False, verbose=True)
+        if result.returncode == 0:
+            success = True
 
-        if result.returncode != 0:
+        # 2. devcontainerプロジェクト名で試行
+        # devcontainer CLIは {workspace_name}_devcontainer 形式のプロジェクト名を使用
+        devcontainer_project_name = f"{workspace.name}_devcontainer"
+        cmd = [
+            "docker",
+            "compose",
+            "--project-name",
+            devcontainer_project_name,
+            "-f",
+            str(compose_file),
+            "down",
+        ]
+        if remove_volumes:
+            cmd.append("-v")  # ボリュームも削除
+
+        result = run_command(cmd, check=False, verbose=True)
+        if result.returncode == 0:
+            success = True
+
+        if success:
+            console.print("[green]✓ docker-composeプロジェクトの停止・削除が完了しました[/green]")
+            return True
+        else:
             error_msg = _get_error_message(result)
             console.print(
                 f"[red]docker-composeプロジェクトの停止・削除に失敗しました: {error_msg}[/red]"
             )
             return False
-
-        console.print("[green]✓ docker-composeプロジェクトの停止・削除が完了しました[/green]")
-        return True
 
     except Exception as e:
         console.print(
