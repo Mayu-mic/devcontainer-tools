@@ -283,6 +283,8 @@ def get_compose_containers(workspace: Path) -> list[str]:
     """
     docker-composeプロジェクトのコンテナ一覧を取得する。
 
+    devcontainer CLIが使用するプロジェクト名も考慮して検索する。
+
     Args:
         workspace: ワークスペースのパス
 
@@ -299,9 +301,33 @@ def get_compose_containers(workspace: Path) -> list[str]:
 
         compose_file = compose_config["compose_file"]
 
-        # -f オプションでcompose ファイルを明示指定してコンテナ一覧を取得
+        # 1. 通常のdocker composeコマンドを試行
         result = run_command(
             ["docker", "compose", "-f", str(compose_file), "ps", "-q"],
+            check=False,
+        )
+
+        if result.returncode == 0 and result.stdout and result.stdout.strip():
+            return [
+                container_id.strip()
+                for container_id in result.stdout.strip().split("\n")
+                if container_id.strip()
+            ]
+
+        # 2. devcontainerプロジェクト名で試行
+        # devcontainer CLIは {workspace_name}_devcontainer 形式のプロジェクト名を使用
+        devcontainer_project_name = f"{workspace.name}_devcontainer"
+        result = run_command(
+            [
+                "docker",
+                "compose",
+                "--project-name",
+                devcontainer_project_name,
+                "-f",
+                str(compose_file),
+                "ps",
+                "-q",
+            ],
             check=False,
         )
 
@@ -368,6 +394,8 @@ def get_compose_container_id(workspace: Path, service_name: str | None = None) -
     """
     docker-composeプロジェクトから指定されたサービスのコンテナIDを取得する。
 
+    devcontainer CLIが使用するプロジェクト名も考慮して検索する。
+
     Args:
         workspace: ワークスペースのパス
         service_name: サービス名（省略時は最初のサービス）
@@ -391,10 +419,32 @@ def get_compose_container_id(workspace: Path, service_name: str | None = None) -
                 containers = get_compose_containers(workspace)
                 return containers[0] if containers else None
 
-        # 指定されたサービスのコンテナIDを取得
         compose_file = compose_config["compose_file"]
+
+        # 1. 通常のdocker composeコマンドを試行
         result = run_command(
             ["docker", "compose", "-f", str(compose_file), "ps", "-q", service_name],
+            check=False,
+        )
+
+        if result.returncode == 0 and result.stdout and result.stdout.strip():
+            return result.stdout.strip().split("\n")[0]
+
+        # 2. devcontainerプロジェクト名で試行
+        # devcontainer CLIは {workspace_name}_devcontainer 形式のプロジェクト名を使用
+        devcontainer_project_name = f"{workspace.name}_devcontainer"
+        result = run_command(
+            [
+                "docker",
+                "compose",
+                "--project-name",
+                devcontainer_project_name,
+                "-f",
+                str(compose_file),
+                "ps",
+                "-q",
+                service_name,
+            ],
             check=False,
         )
 
