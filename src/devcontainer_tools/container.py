@@ -23,9 +23,9 @@ def _try_compose_command_with_fallback(
     通常のプロジェクト名とdevcontainerプロジェクト名でdocker composeコマンドを試行する。
 
     Args:
-        workspace: ワークスペースのパス
-        compose_file: docker-compose.ymlファイルのパス
-        base_cmd: 基本コマンド（["ps", "-q"] など）
+        workspace (Path): ワークスペースのパス
+        compose_file (Path): docker-compose.ymlファイルのパス
+        base_cmd (list[str]): 基本コマンド（["ps", "-q"] など）
 
     Returns:
         成功した場合はCompletedProcessオブジェクト、失敗した場合はNone
@@ -326,10 +326,10 @@ def get_compose_containers(workspace: Path) -> list[str]:
     devcontainer CLIが使用するプロジェクト名も考慮して検索する。
 
     Args:
-        workspace: ワークスペースのパス
+        workspace (Path): ワークスペースのパス
 
     Returns:
-        コンテナIDのリスト
+        list[str]: コンテナIDのリスト
     """
     try:
         from .utils import detect_compose_config
@@ -362,12 +362,21 @@ def stop_and_remove_compose_containers(workspace: Path, remove_volumes: bool = F
 
     devcontainer CLIが使用するプロジェクト名も考慮して停止・削除する。
 
+    注意: この関数は意図的に両方のプロジェクト名（通常とdevcontainer）で
+    docker compose downを実行します。これは以下の理由によります：
+
+    1. 確実性: どちらのプロジェクト名でコンテナが起動されているか不明な場合があるため
+    2. 安全性: 残存コンテナを確実に停止・削除するため
+    3. 一貫性: 他の関数とは異なり、検索ではなく停止操作のため早期終了は不適切
+
+    パフォーマンス影響は軽微で、確実な停止・削除の方が重要です。
+
     Args:
-        workspace: ワークスペースのパス
-        remove_volumes: 関連するボリュームも削除するかどうか
+        workspace (Path): ワークスペースのパス
+        remove_volumes (bool): 関連するボリュームも削除するかどうか
 
     Returns:
-        成功した場合True、失敗した場合False
+        bool: 少なくとも一方のコマンドが成功した場合True、両方失敗した場合False
     """
     try:
         from .utils import detect_compose_config
@@ -381,7 +390,8 @@ def stop_and_remove_compose_containers(workspace: Path, remove_volumes: bool = F
         compose_file = compose_config["compose_file"]
         console.print("[yellow]docker-composeプロジェクトを停止・削除しています...[/yellow]")
 
-        # 両方のプロジェクト名で停止を試行（どちらも実行してすべてのコンテナを確実に停止）
+        # 両方のプロジェクト名で停止を試行
+        # 注意: 意図的に両方を実行し、すべてのコンテナを確実に停止・削除する
         success = False
 
         # 1. 通常のdocker composeコマンドを試行
@@ -436,11 +446,11 @@ def get_compose_container_id(workspace: Path, service_name: str | None = None) -
     devcontainer CLIが使用するプロジェクト名も考慮して検索する。
 
     Args:
-        workspace: ワークスペースのパス
-        service_name: サービス名（省略時は最初のサービス）
+        workspace (Path): ワークスペースのパス
+        service_name (str | None): サービス名（省略時は最初のサービス）
 
     Returns:
-        コンテナID（見つからない場合はNone）
+        str | None: コンテナID（見つからない場合はNone）
     """
     try:
         from .utils import detect_compose_config
