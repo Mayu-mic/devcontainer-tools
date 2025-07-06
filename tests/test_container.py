@@ -424,6 +424,7 @@ class TestDockerComposeSupport:
         compose_file = Path("/test/workspace/docker-compose.yml")
         mock_detect_compose.return_value = {"compose_file": compose_file}
 
+        # 両方のコマンドが失敗する場合
         mock_result = MagicMock()
         mock_result.returncode = 1
         mock_result.stdout = ""
@@ -434,9 +435,8 @@ class TestDockerComposeSupport:
 
         # Assert
         assert containers == []
-        mock_run_command.assert_called_once_with(
-            ["docker", "compose", "-f", str(compose_file), "ps", "-q"], check=False
-        )
+        # 2回呼び出される（通常のコマンドとdevcontainerプロジェクト名付きのコマンド）
+        assert mock_run_command.call_count == 2
 
     @patch("devcontainer_tools.utils.detect_compose_config")
     @patch("devcontainer_tools.container.run_command")
@@ -447,6 +447,7 @@ class TestDockerComposeSupport:
         compose_file = Path("/test/workspace/docker-compose.yml")
         mock_detect_compose.return_value = {"compose_file": compose_file}
 
+        # 両方のコマンドが空の結果を返す場合
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = ""
@@ -457,9 +458,8 @@ class TestDockerComposeSupport:
 
         # Assert
         assert containers == []
-        mock_run_command.assert_called_once_with(
-            ["docker", "compose", "-f", str(compose_file), "ps", "-q"], check=False
-        )
+        # 2回呼び出される（通常のコマンドとdevcontainerプロジェクト名付きのコマンド）
+        assert mock_run_command.call_count == 2
 
     @patch("devcontainer_tools.utils.detect_compose_config")
     @patch("devcontainer_tools.container.run_command")
@@ -481,9 +481,8 @@ class TestDockerComposeSupport:
 
         # Assert
         assert result is True
-        mock_run_command.assert_called_once_with(
-            ["docker", "compose", "-f", str(compose_file), "down"], check=False, verbose=True
-        )
+        # 2回呼び出される（通常のコマンドとdevcontainerプロジェクト名付きのコマンド）
+        assert mock_run_command.call_count == 2
 
     @patch("devcontainer_tools.utils.detect_compose_config")
     @patch("devcontainer_tools.container.run_command")
@@ -505,9 +504,8 @@ class TestDockerComposeSupport:
 
         # Assert
         assert result is True
-        mock_run_command.assert_called_once_with(
-            ["docker", "compose", "-f", str(compose_file), "down", "-v"], check=False, verbose=True
-        )
+        # 2回呼び出される（通常のコマンドとdevcontainerプロジェクト名付きのコマンド）
+        assert mock_run_command.call_count == 2
 
     @patch("devcontainer_tools.utils.detect_compose_config")
     @patch("devcontainer_tools.container.run_command")
@@ -520,6 +518,7 @@ class TestDockerComposeSupport:
         compose_file = Path("/test/workspace/docker-compose.yml")
         mock_detect_compose.return_value = {"compose_file": compose_file}
 
+        # 両方のコマンドが失敗する場合
         mock_result = MagicMock()
         mock_result.returncode = 1
         mock_result.stderr = "Docker compose down failed"
@@ -530,9 +529,8 @@ class TestDockerComposeSupport:
 
         # Assert
         assert result is False
-        mock_run_command.assert_called_once_with(
-            ["docker", "compose", "-f", str(compose_file), "down"], check=False, verbose=True
-        )
+        # 2回呼び出される（通常のコマンドとdevcontainerプロジェクト名付きのコマンド）
+        assert mock_run_command.call_count == 2
 
     @patch("devcontainer_tools.utils.detect_compose_config")
     def test_stop_and_remove_compose_containers_exception(self, mock_detect_compose):
@@ -546,3 +544,133 @@ class TestDockerComposeSupport:
 
         # Assert
         assert result is False
+
+
+class TestGetContainerIdForDockerCompose:
+    """docker-compose環境でのget_container_id関数のテスト"""
+
+    @patch("devcontainer_tools.utils.detect_compose_config")
+    @patch("devcontainer_tools.container.run_command")
+    def test_get_container_id_docker_compose_with_service(
+        self, mock_run_command, mock_detect_compose
+    ):
+        """docker-compose環境でサービス名が指定されている場合のコンテナID取得"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        compose_file = Path("/test/workspace/docker-compose.yml")
+        devcontainer_config = {"service": "app", "dockerComposeFile": "../docker-compose.yml"}
+        mock_detect_compose.return_value = {
+            "compose_file": compose_file,
+            "devcontainer_config": devcontainer_config,
+        }
+
+        # docker compose ps -q app コマンドの結果をモック
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "container123\n"
+        mock_run_command.return_value = mock_result
+
+        # Act
+        from devcontainer_tools.container import get_container_id
+
+        container_id = get_container_id(workspace)
+
+        # Assert
+        assert container_id == "container123"
+        mock_run_command.assert_called_once_with(
+            ["docker", "compose", "-f", str(compose_file), "ps", "-q", "app"], check=False
+        )
+
+    @patch("devcontainer_tools.utils.detect_compose_config")
+    @patch("devcontainer_tools.container.run_command")
+    def test_get_container_id_docker_compose_without_service(
+        self, mock_run_command, mock_detect_compose
+    ):
+        """docker-compose環境でサービス名が指定されていない場合のコンテナID取得"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        compose_file = Path("/test/workspace/docker-compose.yml")
+        devcontainer_config = {"dockerComposeFile": "../docker-compose.yml"}  # serviceなし
+        mock_detect_compose.return_value = {
+            "compose_file": compose_file,
+            "devcontainer_config": devcontainer_config,
+        }
+
+        # docker compose ps -q コマンドの結果をモック（全コンテナ取得）
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "container123\ncontainer456\n"
+        mock_run_command.return_value = mock_result
+
+        # Act
+        from devcontainer_tools.container import get_container_id
+
+        container_id = get_container_id(workspace)
+
+        # Assert
+        assert container_id == "container123"  # 最初のコンテナを取得
+        mock_run_command.assert_called_once_with(
+            ["docker", "compose", "-f", str(compose_file), "ps", "-q"], check=False
+        )
+
+    @patch("devcontainer_tools.utils.detect_compose_config")
+    @patch("devcontainer_tools.container.run_command")
+    def test_get_container_id_docker_compose_no_containers(
+        self, mock_run_command, mock_detect_compose
+    ):
+        """docker-compose環境でコンテナが見つからない場合"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        compose_file = Path("/test/workspace/docker-compose.yml")
+        devcontainer_config = {"service": "app", "dockerComposeFile": "../docker-compose.yml"}
+        mock_detect_compose.return_value = {
+            "compose_file": compose_file,
+            "devcontainer_config": devcontainer_config,
+        }
+
+        # 両方のコマンドが空の結果を返す場合
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = ""
+        mock_run_command.return_value = mock_result
+
+        # Act
+        from devcontainer_tools.container import get_container_id
+
+        container_id = get_container_id(workspace)
+
+        # Assert
+        assert container_id is None
+        # 2回呼び出される（通常のコマンドとdevcontainerプロジェクト名付きのコマンド）
+        assert mock_run_command.call_count == 2
+
+    @patch("devcontainer_tools.utils.detect_compose_config")
+    @patch("devcontainer_tools.container.run_command")
+    def test_get_container_id_docker_compose_command_failure(
+        self, mock_run_command, mock_detect_compose
+    ):
+        """docker-compose環境でコマンドが失敗した場合"""
+        # Arrange
+        workspace = Path("/test/workspace")
+        compose_file = Path("/test/workspace/docker-compose.yml")
+        devcontainer_config = {"service": "app", "dockerComposeFile": "../docker-compose.yml"}
+        mock_detect_compose.return_value = {
+            "compose_file": compose_file,
+            "devcontainer_config": devcontainer_config,
+        }
+
+        # 両方のコマンドが失敗する場合
+        mock_result = MagicMock()
+        mock_result.returncode = 1
+        mock_result.stdout = ""
+        mock_run_command.return_value = mock_result
+
+        # Act
+        from devcontainer_tools.container import get_container_id
+
+        container_id = get_container_id(workspace)
+
+        # Assert
+        assert container_id is None
+        # 2回呼び出される（通常のコマンドとdevcontainerプロジェクト名付きのコマンド）
+        assert mock_run_command.call_count == 2

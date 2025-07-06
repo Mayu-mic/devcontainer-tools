@@ -16,6 +16,46 @@ from rich.console import Console
 console = Console()
 
 
+def _try_compose_command_with_fallback(
+    workspace: Path, compose_file: Path, base_cmd: list[str]
+) -> subprocess.CompletedProcess[str] | None:
+    """
+    通常のプロジェクト名とdevcontainerプロジェクト名でdocker composeコマンドを試行する。
+
+    Args:
+        workspace (Path): ワークスペースのパス
+        compose_file (Path): docker-compose.ymlファイルのパス
+        base_cmd (list[str]): 基本コマンド（["ps", "-q"] など）
+
+    Returns:
+        成功した場合はCompletedProcessオブジェクト、失敗した場合はNone
+    """
+    # 1. 通常のdocker composeコマンドを試行
+    cmd = ["docker", "compose", "-f", str(compose_file)] + base_cmd
+    result = run_command(cmd, check=False)
+
+    if result.returncode == 0 and result.stdout and result.stdout.strip():
+        return result
+
+    # 2. devcontainerプロジェクト名で試行
+    # devcontainer CLIは {workspace_name}_devcontainer 形式のプロジェクト名を使用
+    devcontainer_project_name = f"{workspace.name}_devcontainer"
+    cmd = [
+        "docker",
+        "compose",
+        "--project-name",
+        devcontainer_project_name,
+        "-f",
+        str(compose_file),
+    ] + base_cmd
+    result = run_command(cmd, check=False)
+
+    if result.returncode == 0 and result.stdout and result.stdout.strip():
+        return result
+
+    return None
+
+
 def _truncate_output(output: str, max_length: int = 200) -> str:
     """
     長い出力を切り詰めて表示用に整形する。
@@ -283,11 +323,13 @@ def get_compose_containers(workspace: Path) -> list[str]:
     """
     docker-composeプロジェクトのコンテナ一覧を取得する。
 
+    devcontainer CLIが使用するプロジェクト名も考慮して検索する。
+
     Args:
-        workspace: ワークスペースのパス
+        workspace (Path): ワークスペースのパス
 
     Returns:
-        コンテナIDのリスト
+        list[str]: コンテナIDのリスト
     """
     try:
         from .utils import detect_compose_config
@@ -299,13 +341,10 @@ def get_compose_containers(workspace: Path) -> list[str]:
 
         compose_file = compose_config["compose_file"]
 
-        # -f オプションでcompose ファイルを明示指定してコンテナ一覧を取得
-        result = run_command(
-            ["docker", "compose", "-f", str(compose_file), "ps", "-q"],
-            check=False,
-        )
+        # フォールバック機能を使用してコンテナ一覧を取得
+        result = _try_compose_command_with_fallback(workspace, compose_file, ["ps", "-q"])
 
-        if result.returncode == 0 and result.stdout and result.stdout.strip():
+        if result and result.stdout and result.stdout.strip():
             return [
                 container_id.strip()
                 for container_id in result.stdout.strip().split("\n")
@@ -321,12 +360,23 @@ def stop_and_remove_compose_containers(workspace: Path, remove_volumes: bool = F
     """
     docker-composeプロジェクトのすべてのコンテナを停止・削除する。
 
+    devcontainer CLIが使用するプロジェクト名も考慮して停止・削除する。
+
+    注意: この関数は意図的に両方のプロジェクト名（通常とdevcontainer）で
+    docker compose downを実行します。これは以下の理由によります：
+
+    1. 確実性: どちらのプロジェクト名でコンテナが起動されているか不明な場合があるため
+    2. 安全性: 残存コンテナを確実に停止・削除するため
+    3. 一貫性: 他の関数とは異なり、検索ではなく停止操作のため早期終了は不適切
+
+    パフォーマンス影響は軽微で、確実な停止・削除の方が重要です。
+
     Args:
-        workspace: ワークスペースのパス
-        remove_volumes: 関連するボリュームも削除するかどうか
+        workspace (Path): ワークスペースのパス
+        remove_volumes (bool): 関連するボリュームも削除するかどうか
 
     Returns:
-        成功した場合True、失敗した場合False
+        bool: 少なくとも一方のコマンドが成功した場合True、両方失敗した場合False
     """
     try:
         from .utils import detect_compose_config
@@ -340,22 +390,47 @@ def stop_and_remove_compose_containers(workspace: Path, remove_volumes: bool = F
         compose_file = compose_config["compose_file"]
         console.print("[yellow]docker-composeプロジェクトを停止・削除しています...[/yellow]")
 
-        # -f オプションでcompose ファイルを明示指定
+        # 両方のプロジェクト名で停止を試行
+        # 注意: 意図的に両方を実行し、すべてのコンテナを確実に停止・削除する
+        success = False
+
+        # 1. 通常のdocker composeコマンドを試行
         cmd = ["docker", "compose", "-f", str(compose_file), "down"]
         if remove_volumes:
             cmd.append("-v")  # ボリュームも削除
 
         result = run_command(cmd, check=False, verbose=True)
+        if result.returncode == 0:
+            success = True
 
-        if result.returncode != 0:
+        # 2. devcontainerプロジェクト名で試行
+        # devcontainer CLIは {workspace_name}_devcontainer 形式のプロジェクト名を使用
+        devcontainer_project_name = f"{workspace.name}_devcontainer"
+        cmd = [
+            "docker",
+            "compose",
+            "--project-name",
+            devcontainer_project_name,
+            "-f",
+            str(compose_file),
+            "down",
+        ]
+        if remove_volumes:
+            cmd.append("-v")  # ボリュームも削除
+
+        result = run_command(cmd, check=False, verbose=True)
+        if result.returncode == 0:
+            success = True
+
+        if success:
+            console.print("[green]✓ docker-composeプロジェクトの停止・削除が完了しました[/green]")
+            return True
+        else:
             error_msg = _get_error_message(result)
             console.print(
                 f"[red]docker-composeプロジェクトの停止・削除に失敗しました: {error_msg}[/red]"
             )
             return False
-
-        console.print("[green]✓ docker-composeプロジェクトの停止・削除が完了しました[/green]")
-        return True
 
     except Exception as e:
         console.print(
@@ -368,12 +443,14 @@ def get_compose_container_id(workspace: Path, service_name: str | None = None) -
     """
     docker-composeプロジェクトから指定されたサービスのコンテナIDを取得する。
 
+    devcontainer CLIが使用するプロジェクト名も考慮して検索する。
+
     Args:
-        workspace: ワークスペースのパス
-        service_name: サービス名（省略時は最初のサービス）
+        workspace (Path): ワークスペースのパス
+        service_name (str | None): サービス名（省略時は最初のサービス）
 
     Returns:
-        コンテナID（見つからない場合はNone）
+        str | None: コンテナID（見つからない場合はNone）
     """
     try:
         from .utils import detect_compose_config
@@ -391,14 +468,14 @@ def get_compose_container_id(workspace: Path, service_name: str | None = None) -
                 containers = get_compose_containers(workspace)
                 return containers[0] if containers else None
 
-        # 指定されたサービスのコンテナIDを取得
         compose_file = compose_config["compose_file"]
-        result = run_command(
-            ["docker", "compose", "-f", str(compose_file), "ps", "-q", service_name],
-            check=False,
+
+        # フォールバック機能を使用してコンテナIDを取得
+        result = _try_compose_command_with_fallback(
+            workspace, compose_file, ["ps", "-q", service_name]
         )
 
-        if result.returncode == 0 and result.stdout and result.stdout.strip():
+        if result and result.stdout and result.stdout.strip():
             return result.stdout.strip().split("\n")[0]
 
     except Exception:
