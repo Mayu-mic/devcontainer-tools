@@ -16,6 +16,46 @@ from rich.console import Console
 console = Console()
 
 
+def _try_compose_command_with_fallback(
+    workspace: Path, compose_file: Path, base_cmd: list[str]
+) -> subprocess.CompletedProcess[str] | None:
+    """
+    通常のプロジェクト名とdevcontainerプロジェクト名でdocker composeコマンドを試行する。
+
+    Args:
+        workspace: ワークスペースのパス
+        compose_file: docker-compose.ymlファイルのパス
+        base_cmd: 基本コマンド（["ps", "-q"] など）
+
+    Returns:
+        成功した場合はCompletedProcessオブジェクト、失敗した場合はNone
+    """
+    # 1. 通常のdocker composeコマンドを試行
+    cmd = ["docker", "compose", "-f", str(compose_file)] + base_cmd
+    result = run_command(cmd, check=False)
+
+    if result.returncode == 0 and result.stdout and result.stdout.strip():
+        return result
+
+    # 2. devcontainerプロジェクト名で試行
+    # devcontainer CLIは {workspace_name}_devcontainer 形式のプロジェクト名を使用
+    devcontainer_project_name = f"{workspace.name}_devcontainer"
+    cmd = [
+        "docker",
+        "compose",
+        "--project-name",
+        devcontainer_project_name,
+        "-f",
+        str(compose_file),
+    ] + base_cmd
+    result = run_command(cmd, check=False)
+
+    if result.returncode == 0 and result.stdout and result.stdout.strip():
+        return result
+
+    return None
+
+
 def _truncate_output(output: str, max_length: int = 200) -> str:
     """
     長い出力を切り詰めて表示用に整形する。
@@ -301,37 +341,10 @@ def get_compose_containers(workspace: Path) -> list[str]:
 
         compose_file = compose_config["compose_file"]
 
-        # 1. 通常のdocker composeコマンドを試行
-        result = run_command(
-            ["docker", "compose", "-f", str(compose_file), "ps", "-q"],
-            check=False,
-        )
+        # フォールバック機能を使用してコンテナ一覧を取得
+        result = _try_compose_command_with_fallback(workspace, compose_file, ["ps", "-q"])
 
-        if result.returncode == 0 and result.stdout and result.stdout.strip():
-            return [
-                container_id.strip()
-                for container_id in result.stdout.strip().split("\n")
-                if container_id.strip()
-            ]
-
-        # 2. devcontainerプロジェクト名で試行
-        # devcontainer CLIは {workspace_name}_devcontainer 形式のプロジェクト名を使用
-        devcontainer_project_name = f"{workspace.name}_devcontainer"
-        result = run_command(
-            [
-                "docker",
-                "compose",
-                "--project-name",
-                devcontainer_project_name,
-                "-f",
-                str(compose_file),
-                "ps",
-                "-q",
-            ],
-            check=False,
-        )
-
-        if result.returncode == 0 and result.stdout and result.stdout.strip():
+        if result and result.stdout and result.stdout.strip():
             return [
                 container_id.strip()
                 for container_id in result.stdout.strip().split("\n")
@@ -447,34 +460,12 @@ def get_compose_container_id(workspace: Path, service_name: str | None = None) -
 
         compose_file = compose_config["compose_file"]
 
-        # 1. 通常のdocker composeコマンドを試行
-        result = run_command(
-            ["docker", "compose", "-f", str(compose_file), "ps", "-q", service_name],
-            check=False,
+        # フォールバック機能を使用してコンテナIDを取得
+        result = _try_compose_command_with_fallback(
+            workspace, compose_file, ["ps", "-q", service_name]
         )
 
-        if result.returncode == 0 and result.stdout and result.stdout.strip():
-            return result.stdout.strip().split("\n")[0]
-
-        # 2. devcontainerプロジェクト名で試行
-        # devcontainer CLIは {workspace_name}_devcontainer 形式のプロジェクト名を使用
-        devcontainer_project_name = f"{workspace.name}_devcontainer"
-        result = run_command(
-            [
-                "docker",
-                "compose",
-                "--project-name",
-                devcontainer_project_name,
-                "-f",
-                str(compose_file),
-                "ps",
-                "-q",
-                service_name,
-            ],
-            check=False,
-        )
-
-        if result.returncode == 0 and result.stdout and result.stdout.strip():
+        if result and result.stdout and result.stdout.strip():
             return result.stdout.strip().split("\n")[0]
 
     except Exception:
