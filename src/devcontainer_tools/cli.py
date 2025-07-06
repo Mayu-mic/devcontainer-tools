@@ -356,7 +356,7 @@ def status(workspace: Path) -> None:
     if config_path:
         table.add_row("Config", str(config_path.relative_to(workspace)))
     else:
-        table.add_row("Config", "Not found")
+        table.add_row("Config", "❌ devcontainerが設定されていません")
 
     console.print(table)
 
