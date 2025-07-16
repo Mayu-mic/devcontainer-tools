@@ -25,14 +25,15 @@ npm install -g @devcontainers/cli
 
 ```bash
 # GitHubから直接インストール
-uv tool install --from git+https://github.com/Mayu-mic/devcontainer-tools --name dev
+uv tool install git+https://github.com/Mayu-mic/devcontainer-tools.git
 
-# ローカルディレクトリからインストール
-cd devcontainer-tools
-uv tool install --editable .
+# インストール後、devコマンドが使用可能になります
+dev --help
 ```
 
 ### 開発者向けインストール
+
+プロジェクトの開発に参加する場合：
 
 ```bash
 git clone https://github.com/Mayu-mic/devcontainer-tools
@@ -247,21 +248,14 @@ npm install -g @devcontainers/cli
 git clone https://github.com/Mayu-mic/devcontainer-tools
 cd devcontainer-tools
 
-# 依存関係をインストール
+# ワンコマンドでセットアップ
+make setup
+
+# または手動セットアップ
 uv sync --dev
 
 # 開発中の変更を即座に反映させるためにeditableモードでインストール
 uv tool install --editable .
-
-# テストを実行
-uv run pytest
-
-# コードフォーマット
-uv run ruff check --fix .
-uv run ruff format .
-
-# 型チェック
-uv run mypy src/
 ```
 
 ### テスト
